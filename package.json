@@ -1,0 +1,14 @@
+{
+  "name": "metagraph-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "mcp-server.js",
+  "dependencies": {
+    "@google/genai": "^2.16.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-sql-parser": "^5.4.0"
+  }
+}
