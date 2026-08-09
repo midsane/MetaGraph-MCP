@@ -2,9 +2,11 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { config } from '../config/env.js';
-import { store } from '../core/metadata-store.js';
-import { vectorStore } from '../core/vector-store.js';
-import { ScribeAgent } from '../agents/scribe-agent.js';
+
+// Import Modular Routers
+import lineageRouter from './routes/lineage.js';
+import searchRouter from './routes/search.js';
+import documentRouter from './routes/document.js';
 
 const app = express();
 app.use(express.json());
@@ -20,81 +22,21 @@ const swaggerOptions = {
     },
     servers: [{ url: `http://localhost:${config.port}` }]
   },
-  apis: ['./src/server/app.js']
+  // Point Swagger parser to the routes directory
+  apis: ['./src/server/routes/*.js']
 };
+
+app.get("/", (req, res)=> {
+  return res.status(200).json({"server healthy": true})
+})
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-/**
- * @openapi
- * /api/lineage:
- *   get:
- *     summary: Retrieve current SQL Lineage Graph DAG
- *     responses:
- *       200:
- *         description: Successful graph payload
- */
-app.get('/api/lineage', (req, res) => {
-  res.json(store.dag.exportGraph());
-});
-
-/**
- * @openapi
- * /api/search:
- *   post:
- *     summary: Semantic Vector Search over metadata embeddings (RAG)
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               query:
- *                 type: string
- *     responses:
- *       200:
- *         description: Top matching metadata context entries
- */
-app.post('/api/search', async (req, res) => {
-  const { query } = req.body;
-  const results = await vectorStore.searchSemantic(query, 3);
-  res.json({ query, matches: results });
-});
-
-/**
- * @openapi
- * /api/document:
- *   post:
- *     summary: Trigger Scribe Agent auto-documentation and vector indexing
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               tableName:
- *                 type: string
- *               columns:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       200:
- *         description: Generated business metadata
- */
-app.post('/api/document', async (req, res) => {
-  const { tableName, columns } = req.body;
-  const doc = await ScribeAgent.documentTable(tableName, columns || []);
-  
-  // RAG Integration: Automatically index generated documentation into Vector Store
-  const textToIndex = `Table: ${tableName}. Description: ${doc.business_description}. Columns: ${columns.join(', ')}`;
-  await vectorStore.indexMetadata(tableName, textToIndex, doc);
-
-  res.json(doc);
-});
+// Mount Routes
+app.use('/api/lineage', lineageRouter);
+app.use('/api/search', searchRouter);
+app.use('/api/document', documentRouter);
 
 app.listen(config.port, () => {
   console.log(`🚀 REST Server running at http://localhost:${config.port}`);
