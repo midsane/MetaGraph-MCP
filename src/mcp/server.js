@@ -4,27 +4,28 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 
 import { getLineageTool } from './tools/get-lineage.js';
 import { getGovernedSchemaTool } from './tools/get-governed-schema.js';
+import { searchMetadataTool } from './tools/search-metadata.js';
 
-const tools = [getLineageTool, getGovernedSchemaTool];
+const tools = [getLineageTool, getGovernedSchemaTool, searchMetadataTool];
 
 const server = new Server(
-  { name: 'atlan-context-mcp', version: '1.0.0' },
-  { capabilities: { tools: {} } }
+    { name: 'MetaGraph-MCP', version: '1.0.0' },
+    { capabilities: { tools: {} } }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
+    tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const tool = tools.find(t => t.name === request.params.name);
-  if (!tool) throw new Error(`Tool not found: ${request.params.name}`);
-  return await tool.execute(request.params.arguments);
+    const tool = tools.find(t => t.name === request.params.name);
+    if (!tool) throw new Error(`Tool not found: ${request.params.name}`);
+    return await tool.execute(request.params.arguments);
 });
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
 }
 
 main().catch((err) => console.error('[MCP Server Error]', err));
