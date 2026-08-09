@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
 const qdrant = new QdrantClient({ url: qdrantUrl });
 
-const COLLECTION_NAME = 'atlan_metadata_catalog';
+const COLLECTION_NAME = 'metagraph_metadata_catalog';
 const VECTOR_SIZE = 768; // Gemini text-embedding-004 outputs 768-dim vectors
 
 export class ProductionVectorStore {

@@ -36,7 +36,7 @@ if (command === 'ingest' && args[1]) {
 } else {
   console.log(`
 Usage:
-  atlan-context ingest <path-to-sql-file>
-  atlan-context schema <tableName> <col1> <col2> <col3>
+  MetaGraph ingest <path-to-sql-file>
+  MetaGraph schema <tableName> <col1> <col2> <col3>
   `);
 }
