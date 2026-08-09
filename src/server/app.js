@@ -7,6 +7,7 @@ import { config } from '../config/env.js';
 import lineageRouter from './routes/lineage.js';
 import searchRouter from './routes/search.js';
 import documentRouter from './routes/document.js';
+import ingestRouter from './routes/ingest.js';
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 app.use('/api/lineage', lineageRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/document', documentRouter);
+app.use('/api/ingest', ingestRouter);
 
 app.listen(config.port, () => {
   console.log(`🚀 REST Server running at http://localhost:${config.port}`);
