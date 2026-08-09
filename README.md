@@ -2,321 +2,181 @@
 
 > **Autonomous Governance & Active Metadata Context Engine for Enterprise AI Agents**
 
-MetaGraph-MCP is an **event-driven metadata ingestion and lineage engine** that builds real-time SQL dependency graphs, detects PII using autonomous LLM agents, and exposes governed enterprise context to AI agents through the **Model Context Protocol (MCP)**.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-v20%2B-green.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-v1.0-purple.svg)](https://modelcontextprotocol.io/)
 
----
-
-## ✨ Key Capabilities
-
-* 🧩 **SQL Metadata Ingestion** — Ingest SQL logs, DDL files, and transformation queries.
-* 🌐 **Real-Time Data Lineage** — Build directed dependency graphs (DAGs) between data assets.
-* 🤖 **Autonomous PII Detection** — Identify potentially sensitive fields using LLM-powered classification.
-* 🔐 **Governed Context** — Apply role-based access control and dynamic PII masking.
-* 🔌 **MCP Integration** — Expose governed metadata and lineage through MCP tools.
-* ⚡ **Event-Driven Architecture** — Continuously update metadata as new SQL activity arrives.
+MetaGraph-MCP is a production-grade, active metadata ingestion and lineage engine built for enterprise AI context delivery. It parses SQL AST query execution logs into directed lineage graphs (DAGs), auto-documents datasets using autonomous LLM agents with PII detection, indexes semantic metadata into a standalone **Qdrant Vector Database**, and exposes governed context to AI agents via the **Model Context Protocol (MCP)**.
 
 ---
 
 ## 🏗️ System Architecture
 
-```text
-┌───────────────────────────────┐
-│      Raw SQL Logs / DDL       │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌───────────────────────────────┐
-│       AST Parser Engine       │
-│   SQL Parsing & Extraction    │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌───────────────────────────────┐
-│    Directed Lineage Graph     │
-│             (DAG)             │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌───────────────────────────────┐
-│     Scribe Metadata Agent     │
-│  Metadata Enrichment & PII    │
-│        Classification         │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌───────────────────────────────┐
-│   Governed MCP Protocol       │
-│           Server              │
-└───────────────┬───────────────┘
-                │
-        ┌───────┴────────┐
-        ▼                ▼
-┌───────────────┐  ┌───────────────────┐
-│ Claude /      │  │ Custom Agent      │
-│ Cursor        │  │ Harness           │
-└───────────────┘  └───────────────────┘
-```
+The system processes raw SQL and DDL metadata through an AST parser, enriches it with autonomous metadata and PII classification, stores semantic embeddings in Qdrant, and exposes governed context through MCP and REST APIs.
 
-### 🔄 Data Flow
+### Cosine Similarity
+
+$$
+\operatorname{CosineSimilarity}(A,B)
+=
+\frac{\mathbf{A}\cdot\mathbf{B}}
+{\|\mathbf{A}\|\,\|\mathbf{B}\|}
+$$
 
 ```text
-SQL / DDL
-   │
-   ▼
-AST Parsing
-   │
-   ▼
-Lineage DAG
-   │
-   ▼
-Metadata + PII Classification
-   │
-   ▼
-RBAC + Dynamic Masking
-   │
-   ▼
-MCP Tools
-   │
-   ├──► Claude Desktop
-   ├──► Cursor
-   └──► Custom AI Agents
+[ Raw SQL Logs / DDL Files ]
+              │
+              ▼
+      [ AST Parser Engine ]
+              │
+              ▼
+ [ Directed Lineage Graph (DAG) ]
+              │
+              ▼
+     [ Scribe Metadata Agent ]
+              │
+              ▼
+   [ PII Classifier & Confidence ]
+              │
+              ▼
+      [ Qdrant Vector DB ]
+        (RAG Embeddings)
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+[ Governed MCP ]  [ Express REST API
+     Server        & Swagger UI ]
+       │             │
+       ▼             ▼
+[ Claude Desktop / Cursor ]   [ Enterprise AI Agents
+                                & Humans ]
 ```
 
 ---
 
-## 🛠️ MCP Tools
+## ✨ Core Features
 
-MetaGraph-MCP exposes governed metadata through the following MCP tools:
-
-| Tool                  | Parameters              | Description                                                         |
-| --------------------- | ----------------------- | ------------------------------------------------------------------- |
-| `get_table_lineage`   | `tableName`             | Returns the upstream dependency graph (DAG) for a data asset.       |
-| `get_governed_schema` | `tableName`, `userRole` | Returns table documentation with dynamic PII masking based on RBAC. |
+- **AST-Based Lineage Ingestion:** Parses raw SQL query logs and DDL statements using `node-sql-parser` to construct an in-memory Directed Acyclic Graph (DAG) mapping upstream/downstream dependencies.
+- **Autonomous Metadata Agent (Scribe):** Leverages LLMs to generate column descriptions, flag sensitive PII data fields (`is_pii: true`), and output confidence ratings (`0.0 → 1.0`).
+- **Vector RAG Engine (Qdrant):** Embeds table definitions and column descriptions using `text-embedding-004` and stores them in a Qdrant vector collection for fast natural-language semantic catalog search.
+- **Governed MCP Server:** Implements the official `@modelcontextprotocol/sdk` over `stdio` with built-in RBAC rules, including PII redaction for non-`ADMIN` agents.
+- **CLI & OpenAPI Tools:** Includes a command-line interface (`atlan-context`) for local SQL batch ingestion and interactive Swagger documentation at `/docs`.
 
 ---
 
-## ⚡ Quickstart
+## 📁 Directory Structure
 
-### Prerequisites
+```text
+atlan-context-mcp/
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+├── package.json
+├── README.md
+└── src/
+    ├── config/
+    │   └── env.js                 # Environment variables & configuration
+    ├── core/
+    │   ├── ast-parser.js          # SQL AST parsing & dependency extraction
+    │   ├── lineage-dag.js         # Directed Graph data structure
+    │   ├── metadata-store.js      # Persistent metadata state storage
+    │   └── vector-store.js        # Qdrant Vector Store integration
+    ├── agents/
+    │   └── scribe-agent.js        # Autonomous documentation & PII classifier
+    ├── mcp/
+    │   ├── server.js              # Model Context Protocol Stdio Server
+    │   └── tools/
+    │       ├── get-lineage.js
+    │       ├── get-governed-schema.js
+    │       └── search-metadata.js # Semantic vector search (RAG)
+    ├── server/
+    │   └── app.js                 # Express REST API & Swagger UI (/docs)
+    └── cli/
+        └── index.js               # CLI runner (`atlan-context ingest`)
+```
 
-Make sure you have:
+---
 
-* [Node.js](https://nodejs.org/) installed
-* npm available in your PATH
-* The repository dependencies installed
+## ⚡ Getting Started
+
+### 1. Prerequisites
+
+- Node.js >= 20.x
+- Docker & Docker Compose
+- Google Gemini API Key
+
+### 2. Environment Setup
+
+Create a `.env` file in the root directory:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+PORT=3000
+QDRANT_URL=http://localhost:6333
+DOTENV_CONFIG_QUIET=true
+```
+
+### 3. Spin Up Infrastructure
+
+Start the application and the Qdrant vector database container:
 
 ```bash
-npm install
+docker-compose up --build -d
 ```
 
----
+### 4. Ingest Sample Data via CLI
 
-### 1. Register Table Schemas
-
-Register the tables and their columns using the CLI:
+Register table schema definitions:
 
 ```bash
-node src/cli/index.js schema raw_orders \
-  order_id customer_email amount
-
-node src/cli/index.js schema stg_orders \
-  order_id user_id amount
+node src/cli/index.js schema raw_orders order_id customer_email amount
+node src/cli/index.js schema stg_orders order_id user_id amount
 ```
 
----
-
-### 2. Ingest SQL / DDL
-
-Ingest SQL transformation queries or DDL files:
+Ingest raw SQL transform queries:
 
 ```bash
 node src/cli/index.js ingest ./sample.sql
 ```
 
-The ingestion pipeline parses the SQL and updates the lineage graph.
+### 5. Access Dashboards & Developer Documentation
+
+- **Swagger API Documentation:** `http://localhost:3000/docs`
+- **REST Dashboard:** `http://localhost:3000`
+- **Qdrant Vector Dashboard:** `http://localhost:6333/dashboard`
 
 ---
 
-### 3. Inspect MCP Tools
+## 🛠️ MCP Protocol Integration
 
-Launch the **MCP Inspector** against the MetaGraph server:
+To connect this server to **Claude Desktop** or **Cursor**, add the following configuration to your MCP settings file (`claude_desktop_config.json`):
 
-```bash
-npx @modelcontextprotocol/inspector \
-  node src/mcp/server.js
+```json
+{
+  "mcpServers": {
+    "atlan-context": {
+      "command": "node",
+      "args": ["/path/to/atlan-context-mcp/src/mcp/server.js"],
+      "env": {
+        "GEMINI_API_KEY": "your_gemini_api_key_here",
+        "QDRANT_URL": "http://localhost:6333"
+      }
+    }
+  }
+}
 ```
 
-This allows you to interactively inspect and invoke the exposed MCP tools.
+### Exposed MCP Tools
+
+| Tool Name | Parameters | Description |
+| --- | --- | --- |
+| `get_table_lineage` | `tableName` | Returns upstream dependency DAG for a target data asset. |
+| `get_governed_schema` | `tableName`, `userRole` | Returns table documentation with role-based PII masking. |
+| `search_business_glossary` | `query`, `topK` | Executes semantic vector RAG search over indexed metadata. |
 
 ---
 
-### 4. Start the REST Control Dashboard
+## 📜 License
 
-Run the local control dashboard:
-
-```bash
-npm run server
-```
-
-Then open:
-
-```text
-http://localhost:3000
-```
-
----
-
-## 🧪 Try It Right Now
-
-Make sure the CLI is executable:
-
-```bash
-chmod +x src/cli/index.js
-```
-
-Then register a sample table:
-
-```bash
-node src/cli/index.js schema raw_orders \
-  order_id customer_email amount
-```
-
-Start the MCP Inspector:
-
-```bash
-npx @modelcontextprotocol/inspector \
-  node src/mcp/server.js
-```
-
-You can now inspect the available tools and query the metadata graph.
-
----
-
-## 🔐 Governance & PII Protection
-
-MetaGraph-MCP is designed to provide AI agents with useful enterprise metadata **without unnecessarily exposing sensitive information**.
-
-The governance pipeline can:
-
-1. Discover metadata from SQL and DDL.
-2. Construct table and column-level lineage.
-3. Classify potentially sensitive or PII fields.
-4. Assign confidence scores to classifications.
-5. Apply RBAC policies.
-6. Dynamically mask protected fields.
-7. Expose only the permitted context through MCP.
-
-```text
-             ┌──────────────────┐
-             │   Table Metadata │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │  PII Classifier  │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ Confidence Score │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │   RBAC Policy    │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ Dynamic Masking  │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ Governed Context │
-             └──────────────────┘
-```
-
----
-
-## 🧠 Example Use Case
-
-Consider a table containing:
-
-```text
-raw_orders
-├── order_id
-├── customer_email   ← PII
-└── amount
-```
-
-A governed schema request can return different representations depending on the requesting user's role.
-
-```text
-Data Engineer
-    │
-    ▼
-customer_email = customer@example.com
-
-Restricted Agent
-    │
-    ▼
-customer_email = ***************
-```
-
-This enables AI agents to reason over enterprise metadata while respecting access-control policies.
-
----
-
-## 📁 Project Structure
-
-```text
-MetaGraph-MCP/
-├── src/
-│   ├── cli/
-│   │   └── index.js
-│   ├── mcp/
-│   │   └── server.js
-│   └── ...
-├── sample.sql
-├── package.json
-└── README.md
-```
-
----
-
-## 🎯 Vision
-
-MetaGraph-MCP aims to become a **governance layer for enterprise AI agents** by combining:
-
-> **Metadata + Lineage + PII Intelligence + RBAC + MCP**
-
-Instead of giving AI agents unrestricted access to enterprise data, MetaGraph-MCP provides them with **context that is structured, traceable, and governed**.
-
----
-
-## 🚀 Roadmap
-
-Potential future capabilities include:
-
-* [ ] Column-level lineage
-* [ ] More SQL dialects
-* [ ] Persistent metadata storage
-* [ ] Incremental/event-based ingestion
-* [ ] Advanced PII entity detection
-* [ ] Policy-as-code governance
-* [ ] Fine-grained MCP authorization
-* [ ] Lineage visualization
-* [ ] Metadata search
-* [ ] Audit logging
-* [ ] Multi-agent governance policies
-
----
-
-## 📄 License
-
-Add your project license here.
-
----
-
-**MetaGraph-MCP** — *Making enterprise metadata accessible to AI agents, without giving up governance.*
+This project is licensed under the MIT License.

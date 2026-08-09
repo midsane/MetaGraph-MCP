@@ -14,7 +14,7 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'AtlanContext-MCP Control API',
+      title: 'MetaGraph-MCP API',
       version: '1.0.0',
       description: 'Active Metadata Engine REST API & Vector Context Search Layer'
     },
