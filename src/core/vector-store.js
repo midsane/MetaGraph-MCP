@@ -106,6 +106,23 @@ export class ProductionVectorStore {
       columns: hit.payload.column_metadata
     }));
   }
+
+
+
+  /**
+   * returns qdrant client
+   */
+  getQdrantClient() {
+    return qdrant;
+  }
+
+
+  /**
+   * returns collection name
+   */
+  getCollectionName() {
+    return COLLECTION_NAME;
+  }
 }
 
 export const vectorStore = new ProductionVectorStore();

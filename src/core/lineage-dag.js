@@ -3,6 +3,9 @@ export class LineageDAG {
     this.graph = new Map(); // targetTable -> Set(sourceTables)
   }
 
+  /**
+   * Add a directed edge from target to source dependency
+   */
   addEdge(target, source) {
     if (!target) return;
     if (!this.graph.has(target)) {
@@ -16,6 +19,17 @@ export class LineageDAG {
     }
   }
 
+  /**
+   * Returns direct parent (upstream) tables as an array
+   */
+  getParents(tableName) {
+    const parents = this.graph.get(tableName);
+    return parents ? Array.from(parents) : [];
+  }
+
+  /**
+   * Traverse DAG recursively to get all upstream dependencies
+   */
   getUpstream(tableName) {
     const visited = new Set();
     const queue = [tableName];
@@ -37,6 +51,36 @@ export class LineageDAG {
     return { table: tableName, upstream_dependencies: upstream };
   }
 
+  /**
+   * Traverse DAG to get all downstream impact dependencies
+   * (Which tables depend ON this table?)
+   */
+  getDownstream(tableName) {
+    const downstream = [];
+    const visited = new Set();
+    const queue = [tableName];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!visited.has(current)) {
+        visited.add(current);
+        if (current !== tableName) downstream.push(current);
+
+        // Find all nodes that have 'current' as a source
+        for (const [target, sources] of this.graph.entries()) {
+          if (sources.has(current)) {
+            queue.push(target);
+          }
+        }
+      }
+    }
+
+    return { table: tableName, downstream_dependencies: downstream };
+  }
+
+  /**
+   * Export graph nodes and edges for visual rendering (e.g. Vis.js / React Flow)
+   */
   exportGraph() {
     const nodes = [];
     const edges = [];
