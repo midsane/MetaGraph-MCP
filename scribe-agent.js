@@ -10,7 +10,7 @@ export class ScribeAgent {
    */
   static async documentSchema(tableName, columns) {
     const prompt = `
-      You are an Atlan Context Agent (Scribe).
+      You are a Context Agent (Scribe).
       Analyze this database table and its columns:
       Table Name: ${tableName}
       Columns: ${JSON.stringify(columns)}

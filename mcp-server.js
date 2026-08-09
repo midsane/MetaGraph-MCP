@@ -19,7 +19,7 @@ const mockDatabase = {
 
 // Initialize MCP Server
 const server = new Server(
-  { name: 'atlan-context-mcp', version: '1.0.0' },
+  { name: 'metagraph-mcp', version: '1.0.0' },
   { capabilities: { tools: {} } }
 );
 
