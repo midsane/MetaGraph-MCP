@@ -1,35 +1,51 @@
 import { store } from '../../core/metadata-store.js';
-import { ScribeAgent } from '../../agents/scribe-agent.js';
 
 export const getGovernedSchemaTool = {
   name: 'get_governed_schema',
-  description: 'Returns schema metadata with automatic RBAC PII redaction.',
+  description: 'Returns pre-indexed schema metadata with automatic RBAC PII redaction (Zero LLM latency).',
   inputSchema: {
     type: 'object',
     properties: {
-      tableName: { type: 'string' },
-      userRole: { type: 'string', description: 'ADMIN or ANALYST' }
+      tableName: { type: 'string', description: 'Name of the database table' },
+      userRole: { type: 'string', description: 'User role: ADMIN or ANALYST' }
     },
     required: ['tableName', 'userRole']
   },
   execute: async (args) => {
-    const columns = store.getSchema(args.tableName);
-    const doc = await ScribeAgent.documentSchema(args.tableName, columns);
-    
-    // Enforce PII masking policy
+    // 1. Ensure DB hydration on cold start
+    await store.loadFromDb();
+
+    // 2. Fetch pre-cached, fully documented metadata from MetadataStore
+    const metadata = store.getMetadata(args.tableName);
+
+    if (!metadata) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ error: `Table '${args.tableName}' not found in metadata catalog.` }, null, 2)
+        }]
+      };
+    }
+
+    // 3. Deep-clone payload so we don't mutate the in-memory store
+    const responsePayload = JSON.parse(JSON.stringify(metadata));
+
+    // 4. Enforce RBAC PII Redaction instantly (Zero LLM overhead)
     if (args.userRole !== 'ADMIN') {
-      doc.column_metadata = doc.column_metadata.map(col => {
+      responsePayload.column_metadata = responsePayload.column_metadata.map(col => {
         if (col.is_pii) {
           return {
             ...col,
             name: `[REDACTED_PII_${col.name.toUpperCase()}]`,
-            description: 'ACCESS DENIED: PII Masked'
+            description: 'ACCESS DENIED: PII Masked due to ANALYST role policies.'
           };
         }
         return col;
       });
     }
-    
-    return { content: [{ type: 'text', text: JSON.stringify(doc, null, 2) }] };
+
+    return { 
+      content: [{ type: 'text', text: JSON.stringify(responsePayload, null, 2) }] 
+    };
   }
 };
