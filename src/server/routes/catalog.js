@@ -5,6 +5,13 @@ const router = Router();
 
 // Lists the tables known to the metadata catalog. This is intentionally a
 // lightweight endpoint so clients do not need semantic search for navigation.
+
+/**
+ * @openapi
+ * /api/catalog:
+ *   get:
+ *     summary: fetch existing tables
+ */
 router.get('/', async (_req, res) => {
   try {
     await store.loadFromDb();

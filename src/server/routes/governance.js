@@ -3,6 +3,8 @@ import { store } from '../../core/metadata-store.js';
 
 const router = Router();
 
+
+// Lists the columns with RBAC given a table name
 router.get('/:tableName', async (req, res) => {
   try {
     await store.loadFromDb();

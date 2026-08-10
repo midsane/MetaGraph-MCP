@@ -5,8 +5,7 @@ import { config } from '../config/env.js';
 
 // Import Modular Routers
 import lineageRouter from './routes/lineage.js';
-import searchRouter from './routes/search.js';
-import documentRouter from './routes/document.js';
+import askRouter from './routes/ask.js';
 import ingestRouter from './routes/ingest.js';
 import purgeRouter from './routes/purge.js';
 import catalogRouter from './routes/catalog.js';
@@ -39,8 +38,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Mount Routes
 app.use('/api/lineage', lineageRouter);
-app.use('/api/search', searchRouter);
-app.use('/api/document', documentRouter);
+app.use('/api/ask', askRouter);
 app.use('/api/ingest', ingestRouter);
 app.use('/api/purge', purgeRouter);
 app.use('/api/catalog', catalogRouter);

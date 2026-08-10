@@ -14,8 +14,8 @@ export const getGovernedSchemaTool = {
   },
   execute: async (args) => {
     const columns = store.getSchema(args.tableName);
-    const doc = await ScribeAgent.documentTable(args.tableName, columns);
-
+    const doc = await ScribeAgent.documentSchema(args.tableName, columns);
+    
     // Enforce PII masking policy
     if (args.userRole !== 'ADMIN') {
       doc.column_metadata = doc.column_metadata.map(col => {
@@ -29,7 +29,7 @@ export const getGovernedSchemaTool = {
         return col;
       });
     }
-
+    
     return { content: [{ type: 'text', text: JSON.stringify(doc, null, 2) }] };
   }
 };
