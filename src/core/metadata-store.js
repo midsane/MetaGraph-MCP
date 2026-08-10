@@ -4,8 +4,8 @@ import { vectorStore } from './vector-store.js';
 export class MetadataStore {
   constructor() {
     this.dag = new LineageDAG();
-    this.tableSchemas = new Map();
-    this.tableMetadata = new Map();
+    this.tableSchemas = new Map();  // tableName -> Array of column objects/strings
+    this.tableMetadata = new Map(); // tableName -> Metadata object
     this.initialized = false;
   }
 
@@ -18,10 +18,9 @@ export class MetadataStore {
     try {
       await vectorStore.init();
       
-      // Scroll stored table metadata points from Qdrant collection
       const scrollResult = await vectorStore.getQdrantClient().scroll(
         vectorStore.getCollectionName(), 
-        { limit: 200, with_payload: true }
+        { limit: 500, with_payload: true }
       );
 
       const points = scrollResult.points || [];
@@ -30,7 +29,13 @@ export class MetadataStore {
         const payload = point.payload;
         if (!payload || !payload.tableName) continue;
 
-        const { tableName, column_metadata, business_description, confidence_score, lineage_dependencies } = payload;
+        const { 
+          tableName, 
+          column_metadata, 
+          business_description, 
+          confidence_score, 
+          upstream_dependencies 
+        } = payload;
 
         // 1. Hydrate Schemas
         const columns = column_metadata ? column_metadata.map(c => c.name || c) : [];
@@ -40,12 +45,12 @@ export class MetadataStore {
         this.tableMetadata.set(tableName, {
           business_description,
           confidence_score,
-          column_metadata
+          column_metadata: column_metadata || []
         });
 
-        // 3. Hydrate Lineage DAG
-        if (Array.isArray(lineage_dependencies)) {
-          lineage_dependencies.forEach(src => {
+        // 3. Hydrate Lineage DAG (Upstream Edges)
+        if (Array.isArray(upstream_dependencies)) {
+          upstream_dependencies.forEach(src => {
             this.dag.addEdge(tableName, src);
           });
         }
@@ -64,27 +69,32 @@ export class MetadataStore {
   async saveTableMetadata(tableName, columns, docPayload = null) {
     await this.loadFromDb();
 
-    // Update in-memory schemas
-    this.tableSchemas.set(tableName, columns);
+    // Store in-memory
+    this.tableSchemas.set(tableName, columns.map(c => (typeof c === 'object' ? c.name : c)));
 
-    // Get upstream dependencies from Lineage DAG for this table
-    const lineage = this.dag.getParents(tableName) || [];
+    // Extract Bi-Directional Lineage
+    const upstream = this.dag.getParents(tableName) || [];
+    const downstream = this.dag.getDownstream(tableName)?.downstream_dependencies || [];
 
     // Format text representation for Gemini Embeddings
     const columnsText = columns.map(c => (typeof c === 'object' ? `${c.name} (${c.description || ''})` : c)).join(', ');
     const description = docPayload?.business_description || `Database table storing ${tableName} records.`;
 
-    const textContent = `Table: ${tableName}. Description: ${description}. Columns: ${columnsText}. Upstream Dependencies: ${lineage.join(', ')}`;
+    const textContent = `Table: ${tableName}. Description: ${description}. Columns: ${columnsText}. Upstream Lineage: ${upstream.join(', ') || 'None'}. Downstream Impact: ${downstream.join(', ') || 'None'}`;
+
+    const columnMetadata = docPayload?.column_metadata || columns.map(c => ({
+      name: typeof c === 'string' ? c : c.name,
+      description: typeof c === 'object' && c.description ? c.description : 'Raw column',
+      is_pii: typeof c === 'object' && c.is_pii !== undefined ? c.is_pii : false
+    }));
 
     const metadataPayload = {
+      tableName,
       business_description: description,
       confidence_score: docPayload?.confidence_score || 0.5,
-      column_metadata: docPayload?.column_metadata || columns.map(c => ({
-        name: typeof c === 'string' ? c : c.name,
-        description: c.description || 'Raw column',
-        is_pii: c.is_pii || false
-      })),
-      lineage_dependencies: lineage
+      column_metadata: columnMetadata,
+      upstream_dependencies: upstream,
+      downstream_dependents: downstream
     };
 
     // Cache metadata in memory
@@ -95,33 +105,81 @@ export class MetadataStore {
   }
 
   /**
-   * Get column list for a table
+   * Smart Incremental Schema Merging (Handles ALTER TABLE / ADD / DROP)
    */
+  async mergeTableSchema(tableName, incomingColumns, scribeAgent) {
+    await this.loadFromDb();
+
+    const existingMeta = this.getMetadata(tableName);
+    const existingColsMap = new Map();
+
+    if (existingMeta && existingMeta.column_metadata) {
+      existingMeta.column_metadata.forEach(c => existingColsMap.set(c.name, c));
+    }
+
+    const updatedColumnMetadata = [];
+    const newColumnsToDocument = [];
+
+    // Identify new vs existing columns
+    for (const colName of incomingColumns) {
+      if (existingColsMap.has(colName)) {
+        // Retain existing agent-generated metadata & PII tags
+        updatedColumnMetadata.push(existingColsMap.get(colName));
+      } else {
+        // Flag new column for incremental documentation
+        newColumnsToDocument.push(colName);
+      }
+    }
+
+    // If new columns exist, run Scribe Agent only on those!
+    if (newColumnsToDocument.length > 0 && scribeAgent) {
+      console.log(`[MetadataStore] Running Scribe Agent for new columns in ${tableName}: [${newColumnsToDocument.join(', ')}]`);
+      const newDoc = await scribeAgent.documentSchema(tableName, newColumnsToDocument);
+
+      if (newDoc && newDoc.column_metadata) {
+        updatedColumnMetadata.push(...newDoc.column_metadata);
+      }
+    }
+
+    const docPayload = {
+      business_description: existingMeta?.business_description || `Table storing ${tableName} records.`,
+      confidence_score: existingMeta?.confidence_score || 0.8,
+      column_metadata: updatedColumnMetadata
+    };
+                        
+    await this.saveTableMetadata(tableName, incomingColumns, docPayload);
+  }
+
+  /**
+   * Record lineage edge and Sync BOTH Target and Source to Qdrant
+   */
+  async addLineageDependency(targetTable, sourceTable) {
+    await this.loadFromDb();
+    
+    // 1. Add edge in DAG
+    this.dag.addEdge(targetTable, sourceTable);
+
+    // 2. Re-index TARGET table (updates upstream dependencies)
+    const targetSchema = this.getSchema(targetTable);
+    const targetMeta = this.getMetadata(targetTable);
+    if (targetSchema.length > 0) {
+      await this.saveTableMetadata(targetTable, targetSchema, targetMeta);
+    }
+
+    // 3. Re-index SOURCE table (updates downstream impact dependents!)
+    const sourceSchema = this.getSchema(sourceTable);
+    const sourceMeta = this.getMetadata(sourceTable);
+    if (sourceSchema.length > 0) {
+      await this.saveTableMetadata(sourceTable, sourceSchema, sourceMeta);
+    }
+  }
+
   getSchema(tableName) {
     return this.tableSchemas.get(tableName) || [];
   }
 
-  /**
-   * Get cached metadata details
-   */
   getMetadata(tableName) {
     return this.tableMetadata.get(tableName) || null;
-  }
-
-  /**
-   * Record lineage edge and sync to Qdrant
-   */
-  async addLineageDependency(targetTable, sourceTable) {
-    await this.loadFromDb();
-    this.dag.addEdge(targetTable, sourceTable);
-
-    // Re-index target table metadata with updated lineage list
-    const existingSchema = this.getSchema(targetTable);
-    const existingMeta = this.getMetadata(targetTable);
-
-    if (existingSchema.length > 0) {
-      await this.saveTableMetadata(targetTable, existingSchema, existingMeta);
-    }
   }
 }
 

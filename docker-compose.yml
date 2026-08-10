@@ -11,18 +11,18 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
-  # MetaGraph-MCP Control Plane & MCP Server
-  MetaGraph-context:
-    build: .
-    container_name: MetaGraph-context-app
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - QDRANT_URL=http://qdrant:6333
-    depends_on:
-      - qdrant
+  # # MetaGraph-MCP Control Plane & MCP Server
+  # MetaGraph-context:
+  #   build: .
+  #   container_name: MetaGraph-context-app
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - PORT=3000
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #     - QDRANT_URL=http://qdrant:6333
+  #   depends_on:
+  #     - qdrant
 
 volumes:
   qdrant_storage:

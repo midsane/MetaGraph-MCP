@@ -3,7 +3,7 @@ import { config } from '../config/env.js';
 const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
 export class ScribeAgent {
-  static async documentTable(tableName, columns) {
+  static async documentSchema(tableName, columns) {
     const prompt = `
       You are Scribe, a Context Agent.
       Analyze database table "${tableName}" with columns: ${JSON.stringify(columns)}.

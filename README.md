@@ -59,7 +59,7 @@ $$
 
 - **AST-Based Lineage Ingestion:** Parses raw SQL query logs and DDL statements using `node-sql-parser` to construct an in-memory Directed Acyclic Graph (DAG) mapping upstream/downstream dependencies.
 - **Autonomous Metadata Agent (Scribe):** Leverages LLMs to generate column descriptions, flag sensitive PII data fields (`is_pii: true`), and output confidence ratings (`0.0 → 1.0`).
-- **Vector RAG Engine (Qdrant):** Embeds table definitions and column descriptions using `text-embedding-004` and stores them in a Qdrant vector collection for fast natural-language semantic catalog search.
+- **Vector RAG Engine (Qdrant):** Embeds table definitions and column descriptions using `gemini-embedding-2` and stores them in a Qdrant vector collection for fast natural-language semantic catalog search.
 - **Governed MCP Server:** Implements the official `@modelcontextprotocol/sdk` over `stdio` with built-in RBAC rules, including PII redaction for non-`ADMIN` agents.
 - **CLI & OpenAPI Tools:** Includes a command-line interface (`atlan-context`) for local SQL batch ingestion and interactive Swagger documentation at `/docs`.
 

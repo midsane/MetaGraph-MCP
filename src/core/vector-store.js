@@ -9,7 +9,8 @@ const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
 const qdrant = new QdrantClient({ url: qdrantUrl });
 
 const COLLECTION_NAME = 'metagraph_metadata_catalog';
-const VECTOR_SIZE = 768; // Gemini text-embedding-004 outputs 768-dim vectors
+const EMBEDDING_MODEL = 'gemini-embedding-2';
+const VECTOR_SIZE = 768;
 
 export class ProductionVectorStore {
   constructor() {
@@ -43,10 +44,19 @@ export class ProductionVectorStore {
   async getEmbedding(text) {
     try {
       const response = await ai.models.embedContent({
-        model: 'text-embedding-004',
+        model: EMBEDDING_MODEL,
         contents: text,
+        config: { outputDimensionality: VECTOR_SIZE },
       });
-      return response.embedding.values;
+
+      const vector = response.embeddings?.[0]?.values;
+      if (!Array.isArray(vector) || vector.length !== VECTOR_SIZE) {
+        throw new Error(
+          `Unexpected embedding response: expected ${VECTOR_SIZE} values, received ${vector?.length ?? 0}.`
+        );
+      }
+
+      return vector;
     } catch (err) {
       console.error('[VectorStore] Gemini Embedding error:', err.message);
       return null;
@@ -74,15 +84,17 @@ export class ProductionVectorStore {
           payload: {
             tableName,
             textContent,
-            business_description: metadataPayload.business_description,
-            confidence_score: metadataPayload.confidence_score,
-            column_metadata: metadataPayload.column_metadata
+            business_description: metadataPayload.business_description || '',
+            confidence_score: metadataPayload.confidence_score ?? 0.5,
+            column_metadata: metadataPayload.column_metadata || [],
+            upstream_dependencies: metadataPayload.upstream_dependencies || [],
+            downstream_dependents: metadataPayload.downstream_dependents || []
           }
         }
       ]
     });
 
-    console.log(`[Qdrant] Upserted vector point for table: "${tableName}"`);
+    console.log(`[Qdrant] Indexed vector & metadata payload for table: "${tableName}"`);
   }
 
   /**
@@ -103,22 +115,21 @@ export class ProductionVectorStore {
       tableName: hit.payload.tableName,
       business_description: hit.payload.business_description,
       similarity_score: parseFloat(hit.score.toFixed(4)),
-      columns: hit.payload.column_metadata
+      columns: hit.payload.column_metadata || [],
+      upstream_dependencies: hit.payload.upstream_dependencies || [],
+      downstream_dependents: hit.payload.downstream_dependents || []
     }));
   }
 
-
-
   /**
-   * returns qdrant client
+   * Returns Qdrant client instance
    */
   getQdrantClient() {
     return qdrant;
   }
 
-
   /**
-   * returns collection name
+   * Returns Qdrant collection name
    */
   getCollectionName() {
     return COLLECTION_NAME;

@@ -8,6 +8,14 @@ const router = Router();
 const parser = new ASTParser();
 
 router.post('/', async (req, res) => {
+  //whats required here
+  //first git rid of comments, get only sql queries in linear fashion
+  //then using queries, add update columuns in table accordingly in metadatastore 
+  // (insert, update, delete query can update table col)
+
+  //also get dependencies from each query , and update lineage dag graph
+
+
   try {
     const { sqlContent } = req.body;
     if (!sqlContent) return res.status(400).json({ error: 'SQL content is required' });
@@ -19,6 +27,8 @@ router.post('/', async (req, res) => {
         store.dag.addEdge(dependencies.target, src);
       });
     }
+
+    console.log('dependecnies', dependencies)
 
     // 2. Crude but effective Table & Column Extractor from CREATE TABLE statements
     const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([\s\S]*?)\);/gi;
@@ -37,7 +47,7 @@ router.post('/', async (req, res) => {
 
       // 3. Run Scribe Agent on extracted schema
       const doc = await ScribeAgent.documentSchema(tableName, columns);
-      
+
       // 4. Save to Qdrant & Memory
       await store.saveTableMetadata(tableName, columns, doc);
       
