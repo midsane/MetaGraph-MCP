@@ -4,9 +4,9 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { store } from "../core/metadata-store.js"
 import { getLineageTool } from './tools/get-lineage.js';
 import { getGovernedSchemaTool } from './tools/get-governed-schema.js';
-import { searchMetadataTool } from './tools/search-metadata.js';
+import { vectorSearchTool } from './tools/search-metadata.js';
 
-const tools = [getLineageTool, getGovernedSchemaTool, searchMetadataTool];
+const tools = [getLineageTool, getGovernedSchemaTool, vectorSearchTool];
 
 const server = new Server(
     { name: 'MetaGraph-MCP', version: '1.0.0' },
