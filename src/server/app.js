@@ -2,6 +2,7 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { config } from '../config/env.js';
+import { store } from '../core/metadata-store.js'
 
 // Import Modular Routers
 import lineageRouter from './routes/lineage.js';
@@ -44,7 +45,20 @@ app.use('/api/purge', purgeRouter);
 app.use('/api/catalog', catalogRouter);
 app.use('/api/governance', governanceRouter);
 
-app.listen(config.port, () => {
-  console.log(`🚀 REST Server running at http://localhost:${config.port}`);
-  console.log(`📚 Interactive Swagger API Docs available at http://localhost:${config.port}/docs`);
-});
+async function startServer() {
+  try {
+    // 1. Hydrate in-memory state from Qdrant BEFORE serving traffic
+    console.log('🔄 Initializing MetadataStore from Qdrant...');
+    await store.loadFromDb();
+
+    // 2. Start HTTP Listener only after state is ready
+    app.listen(config.port, () => {
+      console.log(`🚀 REST Server running at http://localhost:${config.port}`);
+    });
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+startServer();

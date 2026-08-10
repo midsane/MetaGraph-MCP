@@ -1,7 +1,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-
+import { store } from "../core/metadata-store.js"
 import { getLineageTool } from './tools/get-lineage.js';
 import { getGovernedSchemaTool } from './tools/get-governed-schema.js';
 import { searchMetadataTool } from './tools/search-metadata.js';
@@ -24,6 +24,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
+    // Hydrate store from Qdrant before listening for LLM requests
+    await store.loadFromDb();
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
