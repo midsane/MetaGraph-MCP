@@ -181,6 +181,17 @@ export class MetadataStore {
   getMetadata(tableName) {
     return this.tableMetadata.get(tableName) || null;
   }
+  /**
+   * Clears in-memory DAG/Schemas and purges the Vector DB
+   */
+  async purge() {
+    this.dag.graph.clear();
+    this.tableSchemas.clear();
+    this.tableMetadata.clear();
+    this.initialized = false;
+    await vectorStore.purge();
+    console.log('[MetadataStore] Memory cache and DAG cleared.');
+  }
 }
 
 export const store = new MetadataStore();

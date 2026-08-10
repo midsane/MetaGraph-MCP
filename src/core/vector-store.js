@@ -134,6 +134,26 @@ export class ProductionVectorStore {
   getCollectionName() {
     return COLLECTION_NAME;
   }
+
+  /**
+   * Completely deletes and re-initializes the Qdrant vector collection
+   */
+  async purge() {
+    try {
+      const collections = await qdrant.getCollections();
+      const exists = collections.collections.some(c => c.name === COLLECTION_NAME);
+
+      if (exists) {
+        await qdrant.deleteCollection(COLLECTION_NAME);
+        console.log(`[Qdrant] Deleted collection: "${COLLECTION_NAME}"`);
+      }
+
+      this.initialized = false;
+      await this.init(); // Re-create empty collection
+    } catch (err) {
+      console.error('[Qdrant] Purge error:', err.message);
+    }
+  }
 }
 
 export const vectorStore = new ProductionVectorStore();
