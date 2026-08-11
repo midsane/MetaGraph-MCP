@@ -14,8 +14,9 @@ export class ScribeAgent {
       - column_metadata: List of objects { name, description, is_pii (boolean) }.
     `;
     try {
+      console.log("table:", tableName, "cols:", columns)
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-flash-latest',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

@@ -65,20 +65,24 @@ export function useMetagraphWorkspace() {
 
     let cancelled = false;
 
-    request(
-      `/api/governance/${encodeURIComponent(selectedTable)}?role=${userRole}`,
-    )
-      .then((data) => {
+    const fetchGovernance = async () => {
+      try {
+        const data = await request(
+          `/api/governance/${encodeURIComponent(selectedTable)}?role=${userRole}`,
+        );
+        
         if (!cancelled) {
           setGovernedSchema(data);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           setGovernedSchema(null);
           setError(err.message);
         }
-      });
+      }
+    };
+
+    fetchGovernance();
 
     return () => {
       cancelled = true;

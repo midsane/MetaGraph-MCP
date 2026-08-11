@@ -7,6 +7,7 @@ const NODE_OPTIONS = {
   color: {
     background: '#171B24',
     border: '#34C3AE',
+    hover: { background: '#1C212C', border: '#7FE4D6' },
     highlight: { background: '#1C212C', border: '#7FE4D6' },
   },
   font: { color: '#F3F2EE', face: 'JetBrains Mono, monospace', size: 13 },
@@ -57,5 +58,5 @@ export function LineageGraph({ nodes, edges }) {
     return () => networkRef.current?.destroy();
   }, [edges, nodes]);
 
-  return <div ref={graphElement} className="h-[460px] w-full rounded-xl border border-white/10 bg-[var(--bg)]" />;
+  return <div ref={graphElement} className="h-[460px] w-full rounded-xl border border-white/10  bg-[var(--bg)]" />;
 }

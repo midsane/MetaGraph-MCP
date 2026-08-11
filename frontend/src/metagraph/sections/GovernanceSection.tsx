@@ -3,6 +3,7 @@ import { Pill } from '../components/Pill.tsx';
 import { StatCard } from '../components/StatCard.tsx';
 
 export function GovernanceSection({ catalog, governedSchema, isLoading, piiCount, selectedTable, setSelectedTable, setUserRole, userRole }) {
+  console.log("governed schema:", governedSchema)
   return (
     <section className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">

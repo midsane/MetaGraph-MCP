@@ -1,82 +1,92 @@
 import { Router } from 'express';
 import { store } from '../../core/metadata-store.js';
 import { ScribeAgent } from '../../agents/scribe-agent.js';
-import { vectorStore } from '../../core/vector-store.js';
 import { ASTParser } from '../../core/ast-parser.js';
 
 const router = Router();
 const parser = new ASTParser();
 
 /**
- * @openapi
- * /api/ingest:
- *   post:
- *     summary: ingest the provided sql query to identify relationship between tables and generated business definitions of tables and pii tagging of columns
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               sqlContent:
- *                 type: string
- *     responses:
- *       200:
- *         description: ingestion complete
+ * Helper to strip SQL comments (single-line & multi-line)
  */
+function cleanSqlComments(sql) {
+  return sql
+    .replace(/--.*$/gm, '') // Remove -- single line comments
+    .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove /* */ multi-line comments
+}
+
 router.post('/', async (req, res) => {
-  //whats required here
-  //first git rid of comments, get only sql queries in linear fashion
-  //then using queries, add/update columuns in table accordingly in metadatastore 
-  // (insert, update, delete query can update table col)
-
-  //also get dependencies from each query , and update lineage dag graph
-
-
   try {
     const { sqlContent } = req.body;
     if (!sqlContent) return res.status(400).json({ error: 'SQL content is required' });
 
-    // 1. Extract Lineage Dependencies
-    const dependencies = parser.extractDependencies(sqlContent);
-    if (dependencies.target) {
+    // first get rid of comments between sql statements
+    const cleanSql = cleanSqlComments(sqlContent);
+    const ingestedTables = [];
+
+    // Extract Lineage Dependencies via AST Parser
+    const dependencies = parser.extractDependencies(cleanSql);
+    if (dependencies.target && dependencies.sources.length > 0) {
       dependencies.sources.forEach(src => {
         store.dag.addEdge(dependencies.target, src);
       });
     }
 
-    console.log('dependecnies', dependencies)
-
-    // 2. Crude but effective Table & Column Extractor from CREATE TABLE statements
-    const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([\s\S]*?)\);/gi;
+    // Identify different tables and there columns
+    // Pattern A: Standard DDL -> CREATE TABLE name (col1 type, col2 type)
+    const ddlRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\);/gi;
     let match;
-    const ingestedTables = [];
 
-    while ((match = tableRegex.exec(sqlContent)) !== null) {
+    while ((match = ddlRegex.exec(cleanSql)) !== null) {
       const tableName = match[1];
       const columnBlock = match[2];
-      
-      // Extract column names (first word of each line inside the CREATE TABLE block)
+
       const columns = columnBlock
         .split(',')
         .map(line => line.trim().split(/\s+/)[0])
         .filter(col => col && !['PRIMARY', 'FOREIGN', 'CONSTRAINT', 'UNIQUE'].includes(col.toUpperCase()));
 
-      // 3. Run Scribe Agent on extracted schema
       const doc = await ScribeAgent.documentSchema(tableName, columns);
-
-      // 4. Save to Qdrant & Memory
       await store.saveTableMetadata(tableName, columns, doc);
-      
-      ingestedTables.push({ tableName, columns, metadata: doc });
+
+      ingestedTables.push({ tableName, columns, type: 'STANDARD_DDL', metadata: doc });
     }
 
-    res.status(200).json({ 
+    // 3. Pattern B: CTAS -> CREATE TABLE target_table AS SELECT col1, col2 FROM source_table
+    const ctasRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s+AS\s+SELECT\s+([\s\S]*?)\s+FROM\s+([a-zA-Z0-9_]+)/gi;
+
+    while ((match = ctasRegex.exec(cleanSql)) !== null) {
+      const targetTable = match[1];
+      const selectClause = match[2];
+      const sourceTable = match[3];
+
+      // Extract column names from SELECT clause (handles "id, full_name, email")
+      const columns = selectClause
+        .split(',')
+        .map(col => col.trim().split(/\s+/).pop().replace(/[^a-zA-Z0-9_]/g, '')) // Handles aliases if present
+        .filter(Boolean);
+
+      // Add bi-directional lineage graph edge (target depends on source)
+      store.dag.addEdge(targetTable, sourceTable);
+
+      const doc = await ScribeAgent.documentSchema(targetTable, columns);
+      await store.saveTableMetadata(targetTable, columns, doc);
+
+      ingestedTables.push({ 
+        tableName: targetTable, 
+        columns, 
+        type: 'CTAS', 
+        upstreamSource: sourceTable, 
+        metadata: doc 
+      });
+    }
+
+    return res.status(200).json({ 
       message: 'Ingestion complete', 
       lineage: store.dag.exportGraph(),
       tables: ingestedTables 
     });
+
   } catch (err) {
     console.error('[Ingest Error]', err);
     res.status(500).json({ error: err.message || 'Internal server error during ingestion' });
