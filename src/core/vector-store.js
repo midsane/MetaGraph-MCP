@@ -100,24 +100,41 @@ export class ProductionVectorStore {
   /**
    * Perform Semantic RAG Vector Search over Qdrant
    */
+  /**
+     * Perform Semantic RAG Vector Search over Qdrant
+     */
   async searchSemantic(queryText, topK = 3) {
     await this.init();
     const queryVector = await this.getEmbedding(queryText);
     if (!queryVector) return [];
 
-    const searchResults = await qdrant.search(COLLECTION_NAME, {
-      vector: queryVector,
-      limit: topK,
-      with_payload: true
-    });
+    let hits = [];
 
-    return searchResults.map(hit => ({
-      tableName: hit.payload.tableName,
-      business_description: hit.payload.business_description,
-      similarity_score: parseFloat(hit.score.toFixed(4)),
-      columns: hit.payload.column_metadata || [],
-      upstream_dependencies: hit.payload.upstream_dependencies || [],
-      downstream_dependents: hit.payload.downstream_dependents || []
+    // 1. Support Qdrant JS SDK v1.10+ Universal Query API
+    if (typeof qdrant.query === 'function') {
+      const response = await qdrant.query(COLLECTION_NAME, {
+        query: queryVector,
+        limit: topK,
+        with_payload: true
+      });
+      hits = response.points || response || [];
+    }
+    // 2. Fallback for older SDK versions
+    else if (typeof qdrant.search === 'function') {
+      hits = await qdrant.search(COLLECTION_NAME, {
+        vector: queryVector,
+        limit: topK,
+        with_payload: true
+      });
+    }
+
+    return hits.map(hit => ({
+      tableName: hit.payload?.tableName || '',
+      business_description: hit.payload?.business_description || '',
+      similarity_score: parseFloat((hit.score || 0).toFixed(4)),
+      columns: hit.payload?.column_metadata || [],
+      upstream_dependencies: hit.payload?.upstream_dependencies || [],
+      downstream_dependents: hit.payload?.downstream_dependents || []
     }));
   }
 
