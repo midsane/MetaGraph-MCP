@@ -1,5 +1,5 @@
-.env
-bun.lock
-node_modules
-sample_pipeline.sql
-metadata-db.json
+**/.env
+**/node_modules
+**/dist
+**/sample_pipeline.sql
+

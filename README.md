@@ -76,24 +76,24 @@ atlan-context-mcp/
 ├── README.md
 └── src/
     ├── config/
-    │   └── env.js                 # Environment variables & configuration
+    │   └── env.ts                 # Environment variables & configuration
     ├── core/
-    │   ├── ast-parser.js          # SQL AST parsing & dependency extraction
-    │   ├── lineage-dag.js         # Directed Graph data structure
-    │   ├── metadata-store.js      # Persistent metadata state storage
-    │   └── vector-store.js        # Qdrant Vector Store integration
+    │   ├── ast-parser.ts          # SQL AST parsing & dependency extraction
+    │   ├── lineage-dag.ts         # Directed Graph data structure
+    │   ├── metadata-store.ts      # Persistent metadata state storage
+    │   └── vector-store.ts        # Qdrant Vector Store integration
     ├── agents/
-    │   └── scribe-agent.js        # Autonomous documentation & PII classifier
+    │   └── scribe-agent.ts        # Autonomous documentation & PII classifier
     ├── mcp/
-    │   ├── server.js              # Model Context Protocol Stdio Server
+    │   ├── server.ts              # Model Context Protocol Stdio Server
     │   └── tools/
-    │       ├── get-lineage.js
-    │       ├── get-governed-schema.js
-    │       └── search-metadata.js # Semantic vector search (RAG)
+    │       ├── get-lineage.ts
+    │       ├── get-governed-schema.ts
+    │       └── search-metadata.ts # Semantic vector search (RAG)
     ├── server/
-    │   └── app.js                 # Express REST API & Swagger UI (/docs)
+    │   └── app.ts                 # Express REST API & Swagger UI (/docs)
     └── cli/
-        └── index.js               # CLI runner (`atlan-context ingest`)
+        └── index.ts               # CLI runner (`atlan-context ingest`)
 ```
 
 ---
@@ -130,14 +130,14 @@ docker-compose up --build -d
 Register table schema definitions:
 
 ```bash
-node src/cli/index.js schema raw_orders order_id customer_email amount
-node src/cli/index.js schema stg_orders order_id user_id amount
+npm run cli -- schema raw_orders order_id customer_email amount
+npm run cli -- schema stg_orders user_id amount
 ```
 
 Ingest raw SQL transform queries:
 
 ```bash
-node src/cli/index.js ingest ./sample.sql
+npm run cli -- ingest ./sample.sql
 ```
 
 ### 5. Access Dashboards & Developer Documentation
@@ -157,7 +157,7 @@ To connect this server to **Claude Desktop** or **Cursor**, add the following co
   "mcpServers": {
     "atlan-context": {
       "command": "node",
-      "args": ["/path/to/atlan-context-mcp/src/mcp/server.js"],
+      "args": ["/path/to/metagraph-mcp/dist/src/mcp/server.js"],
       "env": {
         "GEMINI_API_KEY": "your_gemini_api_key_here",
         "QDRANT_URL": "http://localhost:6333"
