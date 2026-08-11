@@ -1,4 +1,4 @@
-import { Search, Sparkles } from 'lucide-react';
+import { Lock, Search, Sparkles } from 'lucide-react';
 import { Pill } from '../components/Pill.tsx';
 
 function renderAnswer(answer) {
@@ -47,7 +47,7 @@ function renderAnswer(answer) {
     });
 }
 
-export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, ragResult, suggestions }) {
+export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, ragResult, setUserRole, suggestions, userRole }) {
   const matchedTables = ragResult?.matchedTables || [];
 
   return (
@@ -58,7 +58,14 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--violet-soft)]"><Sparkles size={19} className="text-[var(--violet)]" /></span>
           <h2 className="mg-display mt-4 text-xl font-semibold">Ask the catalog</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-dim)]">Search the live Qdrant metadata catalog using natural language.</p>
-          <form onSubmit={onSearch} className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[var(--text-dim)]">Choose the role to apply to this catalog query.</p>
+            <div className="flex rounded-lg border border-white/10 bg-[var(--bg)] p-1">
+              <button type="button" onClick={() => setUserRole('ADMIN')} className={`rounded-md px-3 py-1 text-xs font-medium transition ${userRole === 'ADMIN' ? 'bg-[var(--amber-soft)] text-[var(--amber)]' : 'text-[var(--text-dim)]'}`}>Admin</button>
+              <button type="button" onClick={() => setUserRole('ANALYST')} className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition ${userRole === 'ANALYST' ? 'bg-[var(--rose-soft)] text-[var(--rose)]' : 'text-[var(--text-dim)]'}`}><Lock size={12} />Analyst</button>
+            </div>
+          </div>
+          <form onSubmit={onSearch} className="mt-3 flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
               <input

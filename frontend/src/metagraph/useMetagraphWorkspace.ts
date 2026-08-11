@@ -166,7 +166,7 @@ export function useMetagraphWorkspace() {
         const data = await request("/api/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, topK: 6 }),
+          body: JSON.stringify({ query, topK: 6, userRole }),
         });
 
         setRagResult(data);
@@ -176,7 +176,7 @@ export function useMetagraphWorkspace() {
         setIsSearching(false);
       }
     },
-    [ragQuery],
+    [ragQuery, userRole],
   );
 
   return {

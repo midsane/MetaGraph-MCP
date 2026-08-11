@@ -71,7 +71,9 @@ export default function App() {
               onSearch={workspace.handleSearch}
               ragQuery={workspace.ragQuery}
               ragResult={workspace.ragResult}
+              setUserRole={workspace.setUserRole}
               suggestions={workspace.suggestions}
+              userRole={workspace.userRole}
             />
           )}
         </main>
