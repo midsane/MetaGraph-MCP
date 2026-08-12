@@ -67,6 +67,32 @@ Protocol (MCP).
 
 ------------------------------------------------------------------------
 
+
+``` text
+
+[Frontend Web UI]
+                               │
+                      POST /api/ask { query, role }
+                               │
+                               ▼
+                ┌──────────────────────────────┐
+                │   /api/ask Single-Agent Loop │
+                └──────────────┬───────────────┘
+                               │
+             Calls Internal Services / MCP Tools:
+       ┌───────────────────────┼───────────────────────┐
+       ▼                       ▼                       ▼
+[Qdrant Semantic Search]  [Neo4j Lineage]     [Postgres Schema + RBAC]
+       │                       │                       │
+       └───────────────────────┼───────────────────────┘
+                               │
+                               ▼
+                 [LLM Generates Governed SQL]
+                               │
+                               ▼
+                     [Returns Response + Lineage Graph to UI]
+```
+
 ## 🔑 Key Architectural Design Decisions
 
 ### 1. Dual-Track Ingestion Engine
