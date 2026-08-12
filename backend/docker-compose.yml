@@ -1,25 +1,39 @@
+version: '3.8'
+
 services:
-  # The Qdrant Vector Engine Container
   qdrant:
     image: qdrant/qdrant:latest
     ports:
-      - "6333:6333" # REST API & Dashboard
-      - "6334:6334" # gRPC API
+      - "6333:6333"
+      - "6334:6334"
     volumes:
-      - qdrant_storage:/qdrant/storage
+      - qdrant_data:/qdrant/storage
 
-  # # MetaGraph-MCP Control Plane & MCP Server
-  # MetaGraph-context:
-  #   build: .
-  #   container_name: MetaGraph-context-app
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - PORT=3000
-  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
-  #     - QDRANT_URL=http://qdrant:6333
-  #   depends_on:
-  #     - qdrant
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: metagraph
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # This will auto-run our init scripts when the container starts
+      - ./src/db/init-catalog.sql:/docker-entrypoint-initdb.d/1-init-catalog.sql
+      - ./src/db/init-target-db.sql:/docker-entrypoint-initdb.d/2-init-target.sql
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/password123
+    ports:
+      - "7474:7474" # HTTP Browser
+      - "7687:7687" # Bolt port for Node.js
+    volumes:
+      - neo4j_data:/data
 
 volumes:
-  qdrant_storage:
+  qdrant_data:
+  pg_data:
+  neo4j_data:
