@@ -19,7 +19,8 @@ export function useMetagraphWorkspace() {
   const [selectedAssetName, setSelectedAssetName] = useState(null);
   const [userRole, setUserRole] = useState("ANALYST");
   const [ragQuery, setRagQuery] = useState("");
-  const [ragResult, setRagResult] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [sessionId, setSessionId] = useState(null);
   const [actionLog, setActionLog] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -179,7 +180,8 @@ export function useMetagraphWorkspace() {
     try {
       await request("/api/purge", { method: "POST" });
       setSelectedAssetName(null);
-      setRagResult(null);
+      setChatMessages([]);
+      setSessionId(null);
       setActionLog("Catalog purged.");
       await loadWorkspace();
       await loadContextLayer();
@@ -190,45 +192,87 @@ export function useMetagraphWorkspace() {
     }
   }, [loadWorkspace, loadContextLayer]);
 
-  const handleSearch = useCallback(
+  const handleSendMessage = useCallback(
     async (event, query = ragQuery) => {
       event?.preventDefault();
 
-      if (!query.trim()) {
+      const trimmed = query.trim();
+      if (!trimmed) {
         return;
       }
 
+      const userMessageId = crypto.randomUUID();
+      const pendingMessageId = crypto.randomUUID();
+
+      setChatMessages((prev) => [
+        ...prev,
+        { id: userMessageId, role: "user", content: trimmed },
+        { id: pendingMessageId, role: "assistant", content: "", pending: true },
+      ]);
+      setRagQuery("");
       setIsSearching(true);
-      setError("");
 
       try {
         const data = await request("/api/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, topK: 6, userRole }),
+          body: JSON.stringify({ query: trimmed, userRole, sessionId }),
         });
 
-        setRagResult(data);
+        setSessionId(data.sessionId);
+        setChatMessages((prev) => {
+          const next = prev.filter((message) => message.id !== pendingMessageId);
+          if (data.wasReset) {
+            next.push({
+              id: crypto.randomUUID(),
+              role: "system",
+              content: "Role changed - starting a fresh conversation context for this turn.",
+            });
+          }
+          next.push({
+            id: pendingMessageId,
+            role: "assistant",
+            content: data.answer,
+            matchedTables: data.matchedTables || [],
+            toolCalls: data.toolCalls || [],
+            skillsLoaded: data.skillsLoaded || [],
+          });
+          return next;
+        });
       } catch (err) {
-        setError(err.message);
+        setChatMessages((prev) =>
+          prev.map((message) =>
+            message.id === pendingMessageId
+              ? { ...message, content: `Something went wrong: ${err.message}`, pending: false, isError: true }
+              : message,
+          ),
+        );
       } finally {
         setIsSearching(false);
       }
     },
-    [ragQuery, userRole],
+    [ragQuery, sessionId, userRole],
   );
+
+  const handleNewChat = useCallback(() => {
+    setChatMessages([]);
+    setSessionId(null);
+    setRagQuery("");
+  }, []);
 
   return {
     actionLog,
     activeTab,
     businessDbTables,
     catalogDbTables,
+    chatMessages,
     downstreamOfSelected,
     error,
     graphData,
     handleExec,
+    handleNewChat,
     handlePurge,
-    handleSearch,
+    handleSendMessage,
     handleSyncNow,
     isLoading,
     isProcessing,
@@ -237,10 +281,10 @@ export function useMetagraphWorkspace() {
     isSyncing,
     piiColumnCount,
     ragQuery,
-    ragResult,
     riskHits,
     selectedAsset,
     selectedAssetName,
+    sessionId,
     setActiveTab,
     setError,
     setRagQuery,

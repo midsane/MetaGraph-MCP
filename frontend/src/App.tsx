@@ -56,11 +56,12 @@ export default function App() {
 
         {workspace.activeTab === 'ask' && (
           <AskSection
+            chatMessages={workspace.chatMessages}
             isSearching={workspace.isSearching}
+            onNewChat={workspace.handleNewChat}
             onQueryChange={workspace.setRagQuery}
-            onSearch={workspace.handleSearch}
+            onSendMessage={workspace.handleSendMessage}
             ragQuery={workspace.ragQuery}
-            ragResult={workspace.ragResult}
             setUserRole={workspace.setUserRole}
             suggestions={workspace.suggestions}
             userRole={workspace.userRole}

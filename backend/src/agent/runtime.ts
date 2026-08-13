@@ -21,11 +21,15 @@ export interface AgentResult {
   toolCalls: ToolCallTrace[];
   skillsLoaded: string[];
   iterations: number;
+  /** Full conversation so far (including tool-call/tool-result turns), for a caller to persist and replay on a follow-up call. */
+  history: LlmMessage[];
 }
 
 export interface RunAgentOptions {
   useHyde?: boolean;
   maxIterations?: number;
+  /** Prior turns to continue from (see AgentResult.history), e.g. from a session store. */
+  history?: LlmMessage[];
 }
 
 function chunkForModel(value: unknown): unknown {
@@ -94,9 +98,14 @@ TOOL USE RULES:
 3. If a column comes back named "[REDACTED_PII_*]", it is masked for the current role. State
    that it is restricted; never guess or infer its real name or content.
 4. When a question concerns lineage or "what breaks if I change X", call
-   check_downstream_impact / get_table_lineage ra than reasoning about it yourself.
+   check_downstream_impact / get_table_lineage rather than reasoning about it yourself.
 5. Once you have enough tool output to answer, stop calling tools and give a final, concise,
    well-formatted answer.
+6. You can DRAFT SQL for the user to review, but you have no ability to execute, run, or apply
+   any query or DDL statement against any database - you have no execute/write tool at all. Never
+   say you will "proceed", "go ahead and drop it", or otherwise claim to carry out a database
+   change yourself. After drafting SQL, tell the user to review it and run it themselves (e.g. via
+   the Update Business DB tool) - do not ask "would you like me to proceed?".
 ${skillDirectives.length ? '\n' + skillDirectives.join('\n\n') : ''}
 `.trim();
 }
@@ -122,7 +131,7 @@ export async function runAgent(
   const systemInstruction = buildSystemInstruction(role, skills.map(s => s.directive));
   const tools = buildToolDeclarations();
 
-  const messages: LlmMessage[] = [{ role: 'user', content: query }];
+  const messages: LlmMessage[] = [...(options.history || []), { role: 'user', content: query }];
   const toolCalls: ToolCallTrace[] = [];
   let calledDownstreamCheck = false;
   let nudged = false;
@@ -140,6 +149,7 @@ export async function runAgent(
           toolCalls,
           skillsLoaded,
           iterations: iteration,
+          history: messages,
         };
       }
 
@@ -160,6 +170,8 @@ export async function runAgent(
         continue;
       }
 
+      messages.push({ role: 'assistant', content: response.text });
+
       return {
         query,
         role,
@@ -168,6 +180,7 @@ export async function runAgent(
         toolCalls,
         skillsLoaded,
         iterations: iteration,
+        history: messages,
       };
     }
 
@@ -191,5 +204,6 @@ export async function runAgent(
     toolCalls,
     skillsLoaded,
     iterations: maxIterations,
+    history: messages,
   };
 }
