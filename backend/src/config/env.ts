@@ -10,8 +10,20 @@ function envInt(name: string, fallback: number): number {
 
 export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-flash-latest',
+  geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-2',
   port: envInt('PORT', 3000),
   nodeEnv: process.env.NODE_ENV || 'development',
+
+  // Which backend every text-generation and embedding call in src/llm/ routes
+  // through. 'gemini' (default) or 'openrouter'. See src/llm/index.ts.
+  llmProvider: (process.env.LLM_PROVIDER || 'gemini').toLowerCase(),
+
+  openrouter: {
+    apiKey: process.env.OPENROUTER_API_KEY || '',
+    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+    embeddingModel: process.env.OPENROUTER_EMBEDDING_MODEL || 'openai/text-embedding-3-small',
+  },
 
   // MetaGraph's own catalog store: tables, columns, PII tags, sync watermark.
   catalogDb: {

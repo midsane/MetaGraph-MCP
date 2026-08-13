@@ -1,11 +1,9 @@
-import { GoogleGenAI, createUserContent, FunctionCallingConfigMode, type Content } from '@google/genai';
-import { config } from '../config/env.js';
-import { buildFunctionDeclarations, executeTool, type ToolCallTrace } from './tool-registry.js';
+import { getLlmProvider } from '../llm/index.js';
+import type { LlmMessage } from '../llm/types.js';
+import { buildToolDeclarations, executeTool, type ToolCallTrace } from './tool-registry.js';
 import { matchSkills } from './skills/index.js';
 import { normalizeRole, type Role } from '../rbac/redact.js';
 
-const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
-const MODEL = 'gemini-flash-latest';
 const MAX_ITERATIONS = 6;
 
 // Chunking: tool results are hydrated straight from Postgres/Neo4j/Qdrant
@@ -96,7 +94,7 @@ TOOL USE RULES:
 3. If a column comes back named "[REDACTED_PII_*]", it is masked for the current role. State
    that it is restricted; never guess or infer its real name or content.
 4. When a question concerns lineage or "what breaks if I change X", call
-   check_downstream_impact / get_table_lineage rather than reasoning about it yourself.
+   check_downstream_impact / get_table_lineage ra than reasoning about it yourself.
 5. Once you have enough tool output to answer, stop calling tools and give a final, concise,
    well-formatted answer.
 ${skillDirectives.length ? '\n' + skillDirectives.join('\n\n') : ''}
@@ -107,6 +105,8 @@ ${skillDirectives.length ? '\n' + skillDirectives.join('\n\n') : ''}
  * The in-house agent runtime: a while loop that gives the model access to
  * every catalog MCP tool, executes what it asks for, feeds results back,
  * and repeats until it produces a final answer or a safety limit is hit.
+ * Routes generation through whichever provider LLM_PROVIDER selects
+ * (src/llm/index.ts) - this loop itself has no provider-specific code.
  */
 export async function runAgent(
   query: string,
@@ -115,38 +115,27 @@ export async function runAgent(
 ): Promise<AgentResult> {
   const role = normalizeRole(roleInput);
   const maxIterations = options.maxIterations ?? MAX_ITERATIONS;
+  const provider = getLlmProvider();
 
   const skills = matchSkills(query);
   const skillsLoaded = skills.map(s => s.id);
   const systemInstruction = buildSystemInstruction(role, skills.map(s => s.directive));
-  const functionDeclarations = buildFunctionDeclarations();
+  const tools = buildToolDeclarations();
 
-  const contents: Content[] = [createUserContent(query)];
+  const messages: LlmMessage[] = [{ role: 'user', content: query }];
   const toolCalls: ToolCallTrace[] = [];
   let calledDownstreamCheck = false;
   let nudged = false;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents,
-      config: {
-        systemInstruction,
-        tools: [{ functionDeclarations }],
-        toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-      },
-    });
+    const response = await provider.chat({ system: systemInstruction, messages, tools });
 
-    const candidate = response.candidates?.[0];
-    const finishReason = candidate?.finishReason;
-    const calls = response.functionCalls;
-
-    if (!calls || calls.length === 0) {
-      if (finishReason === 'MAX_TOKENS' || finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+    if (response.toolCalls.length === 0) {
+      if (response.finishReason === 'max_tokens' || response.finishReason === 'safety') {
         return {
           query,
           role,
-          answer: `The agent stopped early (${finishReason}) before producing a complete answer. Please rephrase or narrow the question.`,
+          answer: `The agent stopped early (${response.finishReason}) before producing a complete answer. Please rephrase or narrow the question.`,
           matchedTables: collectMatchedTables(toolCalls),
           toolCalls,
           skillsLoaded,
@@ -161,13 +150,13 @@ export async function runAgent(
       const looksLikeSql = /```sql/i.test(response.text || '');
       if (skillsLoaded.includes('write-sql-query') && looksLikeSql && !calledDownstreamCheck && !nudged) {
         nudged = true;
-        if (candidate?.content) contents.push(candidate.content);
-        contents.push(
-          createUserContent(
+        messages.push({ role: 'assistant', content: response.text });
+        messages.push({
+          role: 'user',
+          content:
             'Before finalizing: you have not called check_downstream_impact for the table(s) your SQL ' +
-            'references yet. Call it now for every referenced table, then give your final answer.'
-          )
-        );
+            'references yet. Call it now for every referenced table, then give your final answer.',
+        });
         continue;
       }
 
@@ -182,22 +171,16 @@ export async function runAgent(
       };
     }
 
-    if (candidate?.content) contents.push(candidate.content);
+    messages.push({ role: 'assistant', content: response.text, toolCalls: response.toolCalls });
 
-    const responseParts = [];
-    for (const call of calls) {
-      const name = call.name || '';
-      const trace = await executeTool(name, (call.args as Record<string, unknown>) || {}, {
-        role,
-        useHyde: options.useHyde,
-      });
+    for (const call of response.toolCalls) {
+      const trace = await executeTool(call.name, call.args, { role, useHyde: options.useHyde });
       toolCalls.push(trace);
-      if (name === 'check_downstream_impact') calledDownstreamCheck = true;
+      if (call.name === 'check_downstream_impact') calledDownstreamCheck = true;
 
       const payload = trace.error ? { error: trace.error } : { output: chunkForModel(trace.result) };
-      responseParts.push({ functionResponse: { name, response: payload } });
+      messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: JSON.stringify(payload) });
     }
-    contents.push({ role: 'user', parts: responseParts });
   }
 
   return {

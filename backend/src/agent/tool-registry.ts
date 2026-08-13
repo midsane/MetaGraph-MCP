@@ -1,4 +1,3 @@
-import { Type, type FunctionDeclaration } from '@google/genai';
 import { getLineageTool } from '../mcp/tools/get-lineage.js';
 import { getGovernedSchemaTool } from '../mcp/tools/get-governed-schema.js';
 import { vectorSearchTool } from '../mcp/tools/search-metadata.js';
@@ -6,6 +5,7 @@ import { checkDownstreamImpactTool } from '../mcp/tools/check-downstream-impact.
 import { listCatalogTablesTool } from '../mcp/tools/list-catalog-tables.js';
 import { normalizeRole, type Role } from '../rbac/redact.js';
 import { generateHydeDocument } from './hyde.js';
+import type { LlmToolDeclaration } from '../llm/types.js';
 
 // Same tool implementations the MCP server exposes to external consumers
 // (Claude Desktop, Cursor, etc.) - the in-house agent runtime is just
@@ -26,33 +26,26 @@ export const AGENT_TOOLS = [
 // tool boundary, regardless of what the user's message asks it to do.
 const CALLER_CONTROLLED_PARAMS = new Set(['userRole']);
 
-function toGeminiType(jsonType: string | undefined): Type {
-  switch (jsonType) {
-    case 'string': return Type.STRING;
-    case 'number': return Type.NUMBER;
-    case 'integer': return Type.INTEGER;
-    case 'boolean': return Type.BOOLEAN;
-    case 'array': return Type.ARRAY;
-    case 'object': return Type.OBJECT;
-    default: return Type.STRING;
-  }
-}
-
-function toGeminiParameters(inputSchema: any) {
+function toPlainParameters(inputSchema: any) {
   const properties: Record<string, any> = {};
   for (const [key, val] of Object.entries<any>(inputSchema.properties || {})) {
     if (CALLER_CONTROLLED_PARAMS.has(key)) continue;
-    properties[key] = { type: toGeminiType(val.type), description: val.description };
+    properties[key] = { type: val.type, description: val.description };
   }
   const required = (inputSchema.required || []).filter((name: string) => !CALLER_CONTROLLED_PARAMS.has(name));
-  return { type: Type.OBJECT, properties, required };
+  return { type: 'object', properties, required };
 }
 
-export function buildFunctionDeclarations(): FunctionDeclaration[] {
+/**
+ * Plain JSON Schema tool declarations (userRole stripped), provider-agnostic
+ * - each LlmProvider adapter translates this into whatever its own API
+ * needs (e.g. GeminiProvider maps it to the Gemini Type enum internally).
+ */
+export function buildToolDeclarations(): LlmToolDeclaration[] {
   return AGENT_TOOLS.map(tool => ({
     name: tool.name,
     description: tool.description,
-    parameters: toGeminiParameters(tool.inputSchema),
+    parameters: toPlainParameters(tool.inputSchema),
   }));
 }
 

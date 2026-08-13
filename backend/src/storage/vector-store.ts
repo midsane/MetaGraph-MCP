@@ -1,14 +1,12 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
-import { GoogleGenAI } from '@google/genai';
 import { config } from '../config/env.js';
-
-const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
+import { getLlmProvider } from '../llm/index.js';
+import { EMBEDDING_DIMENSIONS } from '../llm/constants.js';
 
 const qdrant = new QdrantClient({ url: config.qdrant.url });
 
 const COLLECTION_NAME = 'metagraph_metadata_catalog';
-const EMBEDDING_MODEL = 'gemini-embedding-2';
-const VECTOR_SIZE = 768;
+const VECTOR_SIZE = EMBEDDING_DIMENSIONS;
 
 export interface SearchResult {
   tableName: string;
@@ -46,28 +44,13 @@ export class ProductionVectorStore {
   }
 
   /**
-   * Generates embedding vector via Gemini API
+   * Generates an embedding vector via whichever provider LLM_PROVIDER
+   * selects (see src/llm/index.ts). Both providers are validated to return
+   * EMBEDDING_DIMENSIONS-length vectors so the Qdrant collection stays
+   * compatible regardless of which one produced a given point.
    */
   async getEmbedding(text: string): Promise<number[] | null> {
-    try {
-      const response = await ai.models.embedContent({
-        model: EMBEDDING_MODEL,
-        contents: text,
-        config: { outputDimensionality: VECTOR_SIZE },
-      });
-
-      const vector = response.embeddings?.[0]?.values;
-      if (!Array.isArray(vector) || vector.length !== VECTOR_SIZE) {
-        throw new Error(
-          `Unexpected embedding response: expected ${VECTOR_SIZE} values, received ${vector?.length ?? 0}.`
-        );
-      }
-
-      return vector;
-    } catch (err: any) {
-      console.error('[VectorStore] Gemini Embedding error:', err.message);
-      return null;
-    }
+    return getLlmProvider().embed(text);
   }
 
   /**
