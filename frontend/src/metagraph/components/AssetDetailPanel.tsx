@@ -37,21 +37,6 @@ export function AssetDetailPanel({ tableName, table, upstream, downstream, onClo
             <p className="mt-2 text-sm leading-6 text-[var(--text-dim)]">{table.businessSummary || 'No description available.'}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 border-b border-[var(--border)] p-5 text-xs">
-            <div>
-              <p className="flex items-center gap-1.5 font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]"><ArrowUpRight size={12} />Upstream ({upstream.length})</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {upstream.length ? upstream.map(name => <Pill key={name} tone="brand">{name}</Pill>) : <span className="text-[var(--text-faint)]">None</span>}
-              </div>
-            </div>
-            <div>
-              <p className="flex items-center gap-1.5 font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]"><ArrowDownRight size={12} />Downstream ({downstream.length})</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {downstream.length ? downstream.map(name => <Pill key={name} tone="warn">{name}</Pill>) : <span className="text-[var(--text-faint)]">None</span>}
-              </div>
-            </div>
-          </div>
-
           <div className="p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">Columns</p>
             <div className="space-y-2">

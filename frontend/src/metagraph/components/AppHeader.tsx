@@ -17,19 +17,7 @@ export function AppHeader({ activeTab, isPurging, onPurge, onSelectTab }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--text-dim)] sm:flex">
-              <span className="mg-live-dot h-1.5 w-1.5 rounded-full bg-[var(--teal)]" />
-              Live
-            </span>
-            <button
-              onClick={onPurge}
-              disabled={isPurging}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--rose)]/25 px-3 py-2 text-xs font-medium text-[var(--rose)] transition hover:bg-[var(--rose-soft)] disabled:opacity-50"
-            >
-              <Trash2 size={14} />{isPurging ? 'Purging' : 'Purge'}
-            </button>
-          </div>
+      
         </div>
 
         <nav className="flex gap-1.5 pt-1 pl-1 overflow-x-auto pb-3">
