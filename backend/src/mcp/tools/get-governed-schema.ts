@@ -1,5 +1,6 @@
 import { CatalogStore } from '../../storage/catalog-store.js';
 import { mapStoredColumns, redactColumns } from '../../rbac/redact.js';
+import { config } from '../../config/env.js';
 
 export const getGovernedSchemaTool = {
   name: 'get_governed_schema',
@@ -29,6 +30,12 @@ export const getGovernedSchemaTool = {
 
     const responsePayload = {
       tableName: table.table_name,
+      // The live business database schema this table lives in - any SQL that
+      // will actually run against business-db must qualify the table name as
+      // "<schema>.<tableName>", since the connection's default search_path
+      // may not include it (unqualified DDL/DML can silently target the
+      // wrong schema or fail to resolve the table at all).
+      schema: config.businessDb.schema,
       business_description: table.business_summary,
       column_metadata,
     };

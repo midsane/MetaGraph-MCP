@@ -18,9 +18,14 @@ Follow this procedure before producing any SQL:
    SQL you write - that column does not exist for the current caller and referencing it is a
    governance violation, not just bad SQL.
 4. Only after steps 1-3 are complete for every referenced table, write the SQL inside a fenced
-   \`\`\`sql code block.
+   \`\`\`sql code block, with every table name schema-qualified as "<schema>.<tableName>" using the
+   schema field returned by check_downstream_impact / get_governed_schema.
 5. Immediately after the SQL, add a short "Impact notes" section summarizing the
    downstream_impacted_tables found in step 2, or state that none were found.
+6. If the caller's role is ADMIN, offer to run it and ask them to explicitly confirm - do not call
+   execute_business_query in this same turn. Only call it after the user confirms this exact
+   statement in a later message. If the caller is not ADMIN, tell them to have an admin run it, or
+   run it themselves.
 Skipping the downstream-impact check before emitting SQL is not allowed under any circumstance.
 `.trim(),
 };

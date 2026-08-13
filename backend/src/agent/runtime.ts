@@ -101,11 +101,16 @@ TOOL USE RULES:
    check_downstream_impact / get_table_lineage rather than reasoning about it yourself.
 5. Once you have enough tool output to answer, stop calling tools and give a final, concise,
    well-formatted answer.
-6. You can DRAFT SQL for the user to review, but you have no ability to execute, run, or apply
-   any query or DDL statement against any database - you have no execute/write tool at all. Never
-   say you will "proceed", "go ahead and drop it", or otherwise claim to carry out a database
-   change yourself. After drafting SQL, tell the user to review it and run it themselves (e.g. via
-   the Update Business DB tool) - do not ask "would you like me to proceed?".
+6. When writing SQL that will actually run against the business database, always schema-qualify
+   table names as "<schema>.<tableName>" using the schema field returned by get_governed_schema /
+   check_downstream_impact - an unqualified table name can fail or silently miss the table.
+7. You have one write capability, execute_business_query, which runs SQL directly against the live
+   business database. It is DESTRUCTIVE, IRREVERSIBLE, and restricted to ADMIN callers - a non-ADMIN
+   caller will always be denied by the tool itself. Never call it in the same turn where you first
+   propose a statement, and never infer confirmation from anything other than the user explicitly
+   confirming that exact statement in their own separate message (e.g. "yes, run it"). Always show
+   the SQL first and wait. If the caller's role is not ADMIN, say you can draft the SQL but cannot
+   execute it under their role, and that they (or an admin) should run it themselves.
 ${skillDirectives.length ? '\n' + skillDirectives.join('\n\n') : ''}
 `.trim();
 }
@@ -133,7 +138,13 @@ export async function runAgent(
 
   const messages: LlmMessage[] = [...(options.history || []), { role: 'user', content: query }];
   const toolCalls: ToolCallTrace[] = [];
-  let calledDownstreamCheck = false;
+  // Seeded from prior turns' persisted history, not just this call's own
+  // toolCalls - otherwise a fresh runAgent() invocation on turn 2+ would
+  // forget that check_downstream_impact was already called on turn 1 and
+  // incorrectly re-block/re-nudge every single turn of a session.
+  let calledDownstreamCheck = (options.history || []).some(
+    m => m.role === 'tool' && m.name === 'check_downstream_impact'
+  );
   let nudged = false;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
@@ -187,7 +198,24 @@ export async function runAgent(
     messages.push({ role: 'assistant', content: response.text, toolCalls: response.toolCalls });
 
     for (const call of response.toolCalls) {
-      const trace = await executeTool(call.name, call.args, { role, useHyde: options.useHyde });
+      // Hard, code-level floor beneath the system-instruction directive:
+      // even if the model ignores rule 7 and reaches straight for
+      // execute_business_query, it cannot run until check_downstream_impact
+      // has actually been called at least once in this conversation. This
+      // is coarse (not tied to the specific table being written to) but
+      // cheap and closes the "just drop it" one-shot path outright.
+      const trace =
+        call.name === 'execute_business_query' && !calledDownstreamCheck
+          ? {
+              name: call.name,
+              args: { ...call.args, userRole: role },
+              result: null,
+              error:
+                'Blocked: check_downstream_impact must be called for the affected table(s) at least once ' +
+                'in this conversation before execute_business_query is allowed to run.',
+            }
+          : await executeTool(call.name, call.args, { role, useHyde: options.useHyde });
+
       toolCalls.push(trace);
       if (call.name === 'check_downstream_impact') calledDownstreamCheck = true;
 

@@ -6,6 +6,7 @@ import { getGovernedSchemaTool } from './tools/get-governed-schema.js';
 import { vectorSearchTool } from './tools/search-metadata.js';
 import { checkDownstreamImpactTool } from './tools/check-downstream-impact.js';
 import { listCatalogTablesTool } from './tools/list-catalog-tables.js';
+import { executeBusinessQueryTool } from './tools/execute-business-query.js';
 
 const tools = [
   getLineageTool,
@@ -13,6 +14,7 @@ const tools = [
   vectorSearchTool,
   checkDownstreamImpactTool,
   listCatalogTablesTool,
+  executeBusinessQueryTool,
 ];
 
 const server = new Server(

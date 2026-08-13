@@ -1,4 +1,5 @@
 import { LineageStore } from '../../storage/lineage-store.js';
+import { config } from '../../config/env.js';
 
 export const checkDownstreamImpactTool = {
   name: 'check_downstream_impact',
@@ -20,6 +21,9 @@ export const checkDownstreamImpactTool = {
 
     const payload = {
       table: args.tableName,
+      // Any SQL that will actually run against business-db must qualify the
+      // table name as "<schema>.<table>" - see execute_business_query.
+      schema: config.businessDb.schema,
       downstream_impacted_count: downstream.length,
       downstream_impacted_tables: downstream,
       safe_to_modify: downstream.length === 0,

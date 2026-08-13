@@ -3,6 +3,7 @@ import { getGovernedSchemaTool } from '../mcp/tools/get-governed-schema.js';
 import { vectorSearchTool } from '../mcp/tools/search-metadata.js';
 import { checkDownstreamImpactTool } from '../mcp/tools/check-downstream-impact.js';
 import { listCatalogTablesTool } from '../mcp/tools/list-catalog-tables.js';
+import { executeBusinessQueryTool } from '../mcp/tools/execute-business-query.js';
 import { normalizeRole, type Role } from '../rbac/redact.js';
 import { generateHydeDocument } from './hyde.js';
 import type { LlmToolDeclaration } from '../llm/types.js';
@@ -17,6 +18,7 @@ export const AGENT_TOOLS = [
   vectorSearchTool,
   checkDownstreamImpactTool,
   listCatalogTablesTool,
+  executeBusinessQueryTool,
 ];
 
 // Tool-schema params the model must never control. RBAC role always comes
