@@ -1,21 +1,19 @@
 import {
-    GitBranch,
-    RefreshCw,
-    ShieldAlert,
+    Database,
+    Network,
     Sparkles,
 } from 'lucide-react';
 
 export const NAV = [
-    { id: 'sync', icon: RefreshCw, label: 'Sync Demo', accent: 'amber' },
-    { id: 'lineage', icon: GitBranch, label: 'Lineage', accent: 'teal' },
-    { id: 'governance', icon: ShieldAlert, label: 'Governance', accent: 'amber' },
-    { id: 'rag', icon: Sparkles, label: 'Ask catalog', accent: 'violet' },
+    { id: 'business-db', icon: Database, label: 'Update Business DB', accent: 'amber' },
+    { id: 'context-layer', icon: Network, label: 'Context Layer', accent: 'teal' },
+    { id: 'ask', icon: Sparkles, label: 'Ask a Question', accent: 'violet' },
 ];
 
 export const PII_KEYWORDS = ['ssn', 'email', 'phone', 'dob', 'password', 'credit_card', 'address', 'card_number', 'cvv'];
 
 export const INITIAL_SQL = `-- Executed directly against business-db (schema-qualify with target_db.)
--- Watch the Lineage/Governance tabs update on their own once the event
+-- Watch the Context Layer graph update on its own once the event
 -- listener (npm run sync:watch) reacts to this change.
 CREATE TABLE target_db.user_contacts AS
 SELECT id, email FROM target_db.raw_users;`;

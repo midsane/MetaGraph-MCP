@@ -1,62 +1,76 @@
-import { useEffect, useRef } from 'react';
-import { Network } from 'vis-network/standalone';
+import { useMemo } from 'react';
+import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, ReactFlowProvider } from '@xyflow/react';
+import dagre from 'dagre';
+import '@xyflow/react/dist/style.css';
+import { AssetNode, NODE_WIDTH, estimateNodeHeight } from './graph/AssetNode.tsx';
+import { CollapsibleEdge } from './graph/CollapsibleEdge.tsx';
 
-const NODE_OPTIONS = {
-  shape: 'box',
-  margin: 14,
-  color: {
-    background: '#171B24',
-    border: '#34C3AE',
-    hover: { background: '#1C212C', border: '#7FE4D6' },
-    highlight: { background: '#1C212C', border: '#7FE4D6' },
-  },
-  font: { color: '#F3F2EE', face: 'JetBrains Mono, monospace', size: 13 },
-  borderWidth: 1.5,
-  shapeProperties: { borderRadius: 10 },
-};
+const nodeTypes = { asset: AssetNode };
+const edgeTypes = { collapsible: CollapsibleEdge };
 
-const EDGE_OPTIONS = {
-  arrows: 'to',
-  color: { color: '#2A2E38', highlight: '#34C3AE' },
-  smooth: true,
-  width: 1.5,
-};
+function layoutNodes(nodes, edges) {
+  const graph = new dagre.graphlib.Graph();
+  graph.setGraph({ rankdir: 'LR', nodesep: 70, ranksep: 140 });
+  graph.setDefaultEdgeLabel(() => ({}));
 
-const NETWORK_OPTIONS = {
-  layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 180 } },
-  physics: false,
-  interaction: { hover: true },
-};
+  nodes.forEach(node => {
+    graph.setNode(node.id, { width: NODE_WIDTH, height: estimateNodeHeight(node) });
+  });
+  edges.forEach(edge => {
+    graph.setEdge(edge.source, edge.target);
+  });
 
-export function LineageGraph({ nodes, edges }) {
-  const graphElement = useRef(null);
-  const networkRef = useRef(null);
+  dagre.layout(graph);
 
-  useEffect(() => {
-    if (!graphElement.current || !nodes.length) {
-      return undefined;
-    }
+  return nodes.map(node => {
+    const { x, y } = graph.node(node.id);
+    const height = estimateNodeHeight(node);
+    return { ...node, position: { x: x - NODE_WIDTH / 2, y: y - height / 2 } };
+  });
+}
 
-    networkRef.current?.destroy();
+export function LineageGraph({ nodes, edges, onSelect, selectedId }) {
+  const { flowNodes, flowEdges } = useMemo(() => {
+    const positioned = layoutNodes(nodes, edges);
 
-    networkRef.current = new Network(graphElement.current, {
-      nodes: nodes.map(node => ({ id: node.id, label: node.label, ...NODE_OPTIONS })),
-      edges: edges.map(edge => ({ from: edge.from, to: edge.to, ...EDGE_OPTIONS })),
-    }, {
-      ...NETWORK_OPTIONS,
-      layout: {
-        hierarchical: {
-          ...NETWORK_OPTIONS.layout.hierarchical,
-          enabled: edges.length > 0,
-        },
-      },
-      physics: edges.length === 0 ? { enabled: true } : false,
-    });
+    return {
+      flowNodes: positioned.map(node => ({
+        id: node.id,
+        type: 'asset',
+        position: node.position,
+        selected: node.id === selectedId,
+        data: node,
+      })),
+      flowEdges: edges.map(edge => ({
+        id: `${edge.source}->${edge.target}`,
+        source: edge.source,
+        target: edge.target,
+        type: 'collapsible',
+      })),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, selectedId]);
 
-    networkRef.current.fit({ animation: { duration: 250, easingFunction: 'easeInOutQuad' } });
-
-    return () => networkRef.current?.destroy();
-  }, [edges, nodes]);
-
-  return <div ref={graphElement} className="h-[460px] w-full rounded-xl border border-white/10  bg-[var(--bg)]" />;
+  return (
+    <div className="h-[640px] w-full overflow-hidden rounded-xl">
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeClick={(_, node) => onSelect?.(node.id)}
+          onPaneClick={() => onSelect?.(null)}
+          fitView
+          minZoom={0.25}
+          maxZoom={1.5}
+          defaultEdgeOptions={{ markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--text-faint)' }, style: { stroke: 'var(--border-strong)', strokeWidth: 1.5 } }}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(15,23,42,0.12)" />
+          <Controls showInteractive={false} className="!rounded-xl !border !border-[var(--border)] !bg-[var(--surface)] !shadow-lg [&_button]:!border-[var(--border)] [&_button]:!bg-[var(--surface)] [&_button]:!fill-[var(--text-dim)] [&_button:hover]:!bg-[var(--hover)]" />
+        </ReactFlow>
+      </ReactFlowProvider>
+    </div>
+  );
 }

@@ -12,7 +12,7 @@ function renderAnswer(answer) {
       }
 
       if (trimmed === '---') {
-        return <hr key={index} className="border-white/10" />;
+        return <hr key={index} className="border-[var(--border)]" />;
       }
 
       if (trimmed.startsWith('### ')) {
@@ -47,20 +47,20 @@ function renderAnswer(answer) {
     });
 }
 
-export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, ragResult, setUserRole, suggestions, userRole }) {
+export function AskSection({ isSearching, onQueryChange, onSearch, ragQuery, ragResult, setUserRole, suggestions, userRole }) {
   const matchedTables = ragResult?.matchedTables || [];
 
   return (
     <section className="space-y-5">
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5 sm:p-8" style={{ background: 'linear-gradient(150deg, var(--violet-soft), transparent 65%), var(--surface)' }}>
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] p-5 sm:p-8" style={{ background: 'linear-gradient(150deg, var(--violet-soft), transparent 65%), var(--surface)' }}>
         <div className="mg-graph-texture pointer-events-none absolute inset-0 opacity-[0.06]" />
         <div className="relative">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--violet-soft)]"><Sparkles size={19} className="text-[var(--violet)]" /></span>
-          <h2 className="mg-display mt-4 text-xl font-semibold">Ask the catalog</h2>
+          <h2 className="mg-display mt-4 text-xl font-semibold">Ask a question</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-dim)]">Search the live Qdrant metadata catalog using natural language.</p>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-[var(--text-dim)]">Choose the role to apply to this catalog query.</p>
-            <div className="flex rounded-lg border border-white/10 bg-[var(--bg)] p-1">
+            <div className="flex rounded-lg border border-[var(--border)] bg-[var(--bg)] p-1">
               <button type="button" onClick={() => setUserRole('ADMIN')} className={`rounded-md px-3 py-1 text-xs font-medium transition ${userRole === 'ADMIN' ? 'bg-[var(--amber-soft)] text-[var(--amber)]' : 'text-[var(--text-dim)]'}`}>Admin</button>
               <button type="button" onClick={() => setUserRole('ANALYST')} className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition ${userRole === 'ANALYST' ? 'bg-[var(--rose-soft)] text-[var(--rose)]' : 'text-[var(--text-dim)]'}`}><Lock size={12} />Analyst</button>
             </div>
@@ -72,10 +72,10 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
                 value={ragQuery}
                 onChange={event => onQueryChange(event.target.value)}
                 placeholder="e.g. Which table contains customer contact details?"
-                className="w-full rounded-xl border border-white/10 bg-[var(--bg)] py-3 pl-10 pr-4 text-sm text-[var(--text)] outline-none focus:border-[var(--violet)]/50"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] py-3 pl-10 pr-4 text-sm text-[var(--text)] outline-none focus:border-[var(--violet)]/50"
               />
             </div>
-            <button disabled={isSearching} className="rounded-xl bg-[var(--violet)] px-5 py-3 text-sm font-semibold text-[#100B24] transition hover:brightness-110 disabled:opacity-60">
+            <button disabled={isSearching} className="rounded-xl bg-[var(--violet)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60">
               {isSearching ? 'Searching…' : 'Search'}
             </button>
           </form>
@@ -88,7 +88,7 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
                   onQueryChange(suggestion);
                   onSearch(null, suggestion);
                 }}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:bg-white/10 hover:text-[var(--text)]"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:bg-[var(--hover-strong)] hover:text-[var(--text)]"
               >
                 {suggestion}
               </button>
@@ -99,7 +99,7 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
 
       {ragResult ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.75fr)]">
-          <article className="rounded-2xl border border-white/10 bg-[var(--surface)] p-5 sm:p-6">
+          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-faint)]">Query</p>
@@ -113,7 +113,7 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
             </div>
           </article>
 
-          <aside className="rounded-2xl border border-white/10 bg-[var(--surface)] p-5 sm:p-6">
+          <aside className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-faint)]">Matched tables</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {matchedTables.length ? matchedTables.map(tableName => (
@@ -125,7 +125,7 @@ export function RagSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
           </aside>
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/15 p-12 text-center text-sm text-[var(--text-faint)]">
+        <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-12 text-center text-sm text-[var(--text-faint)]">
           Search results from the live catalog will appear here.
         </div>
       )}

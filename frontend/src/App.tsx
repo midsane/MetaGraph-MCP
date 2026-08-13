@@ -1,11 +1,9 @@
 import { AppHeader } from './metagraph/components/AppHeader.tsx';
 import { ErrorBanner } from './metagraph/components/ErrorBanner.tsx';
 import { GlobalStyle } from './metagraph/components/GlobalStyle.tsx';
-import { Sidebar } from './metagraph/components/Sidebar.tsx';
-import { GovernanceSection } from './metagraph/sections/GovernanceSection.tsx';
-import { SyncSection } from './metagraph/sections/SyncSection.tsx';
-import { LineageSection } from './metagraph/sections/LineageSection.tsx';
-import { RagSection } from './metagraph/sections/RagSection.tsx';
+import { AskSection } from './metagraph/sections/AskSection.tsx';
+import { BusinessDbSection } from './metagraph/sections/BusinessDbSection.tsx';
+import { ContextLayerSection } from './metagraph/sections/ContextLayerSection.tsx';
 import { useMetagraphWorkspace } from './metagraph/useMetagraphWorkspace.ts';
 
 export default function App() {
@@ -16,73 +14,59 @@ export default function App() {
       <GlobalStyle />
 
       <AppHeader
-        activeAccent={workspace.activeAccent}
-        activeNav={workspace.activeNav}
+        activeTab={workspace.activeTab}
         isPurging={workspace.isPurging}
         onPurge={workspace.handlePurge}
+        onSelectTab={workspace.setActiveTab}
       />
 
-      <div className="mx-auto flex min-h-[calc(100vh-97px)] max-w-7xl flex-col lg:flex-row">
-        <Sidebar activeTab={workspace.activeTab} onSelectTab={workspace.setActiveTab} />
+      <main className="mg-scroll mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-6 lg:px-10">
+        <ErrorBanner error={workspace.error} onDismiss={() => workspace.setError('')} />
 
-        <main className="mg-scroll min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-          <ErrorBanner error={workspace.error} onDismiss={() => workspace.setError('')} />
+        {workspace.activeTab === 'business-db' && (
+          <BusinessDbSection
+            actionLog={workspace.actionLog}
+            businessDbTables={workspace.businessDbTables}
+            isLoading={workspace.isLoading}
+            isProcessing={workspace.isProcessing}
+            isSyncing={workspace.isSyncing}
+            onExec={workspace.handleExec}
+            onSqlChange={workspace.setSqlInput}
+            onSyncNow={workspace.handleSyncNow}
+            riskHits={workspace.riskHits}
+            sqlInput={workspace.sqlInput}
+            statementCount={workspace.statementCount}
+          />
+        )}
 
-          {workspace.activeTab === 'sync' && (
-            <SyncSection
-              actionLog={workspace.actionLog}
-              businessDbTables={workspace.businessDbTables}
-              catalogDbTables={workspace.catalogDbTables}
-              graphData={workspace.graphData}
-              isLoading={workspace.isLoading}
-              isProcessing={workspace.isProcessing}
-              isSyncing={workspace.isSyncing}
-              onExec={workspace.handleExec}
-              onSqlChange={workspace.setSqlInput}
-              onSyncNow={workspace.handleSyncNow}
-              riskHits={workspace.riskHits}
-              sqlInput={workspace.sqlInput}
-              statementCount={workspace.statementCount}
-              syncWatermark={workspace.syncWatermark}
-            />
-          )}
+        {workspace.activeTab === 'context-layer' && (
+          <ContextLayerSection
+            catalogDbTables={workspace.catalogDbTables}
+            downstream={workspace.downstreamOfSelected}
+            graphData={workspace.graphData}
+            isLoading={workspace.isLoading}
+            onSelectAsset={workspace.setSelectedAssetName}
+            piiColumnCount={workspace.piiColumnCount}
+            selectedAsset={workspace.selectedAsset}
+            selectedAssetName={workspace.selectedAssetName}
+            syncWatermark={workspace.syncWatermark}
+            upstream={workspace.upstreamOfSelected}
+          />
+        )}
 
-          {workspace.activeTab === 'lineage' && (
-            <LineageSection
-              catalog={workspace.catalog}
-              graphData={workspace.graphData}
-              isLoading={workspace.isLoading}
-              onRefresh={workspace.loadWorkspace}
-            />
-          )}
-
-          {workspace.activeTab === 'governance' && (
-            <GovernanceSection
-              catalog={workspace.catalog}
-              governedSchema={workspace.governedSchema}
-              isLoading={workspace.isLoading}
-              piiCount={workspace.piiCount}
-              selectedTable={workspace.selectedTable}
-              setSelectedTable={workspace.setSelectedTable}
-              setUserRole={workspace.setUserRole}
-              userRole={workspace.userRole}
-            />
-          )}
-
-          {workspace.activeTab === 'rag' && (
-            <RagSection
-              isSearching={workspace.isSearching}
-              onQueryChange={workspace.setRagQuery}
-              onSearch={workspace.handleSearch}
-              ragQuery={workspace.ragQuery}
-              ragResult={workspace.ragResult}
-              setUserRole={workspace.setUserRole}
-              suggestions={workspace.suggestions}
-              userRole={workspace.userRole}
-            />
-          )}
-        </main>
-      </div>
+        {workspace.activeTab === 'ask' && (
+          <AskSection
+            isSearching={workspace.isSearching}
+            onQueryChange={workspace.setRagQuery}
+            onSearch={workspace.handleSearch}
+            ragQuery={workspace.ragQuery}
+            ragResult={workspace.ragResult}
+            setUserRole={workspace.setUserRole}
+            suggestions={workspace.suggestions}
+            userRole={workspace.userRole}
+          />
+        )}
+      </main>
     </div>
   );
 }

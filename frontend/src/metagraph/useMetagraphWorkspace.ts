@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ACCENTS, INITIAL_SQL, NAV } from "./constants.ts";
+import { INITIAL_SQL } from "./constants.ts";
 import { request } from "./api.ts";
 import {
   buildGraphData,
@@ -8,16 +8,16 @@ import {
   getStatementCount,
 } from "./utils.ts";
 
-const SYNC_TAB_POLL_MS = 3000;
+const CONTEXT_LAYER_POLL_TABS = new Set(["business-db", "context-layer"]);
+const POLL_MS = 3000;
 
 export function useMetagraphWorkspace() {
-  const [activeTab, setActiveTab] = useState("sync");
+  const [activeTab, setActiveTab] = useState("context-layer");
   const [sqlInput, setSqlInput] = useState(INITIAL_SQL);
   const [catalog, setCatalog] = useState([]);
   const [lineageData, setLineageData] = useState({ nodes: [], edges: [] });
-  const [selectedTable, setSelectedTable] = useState("");
+  const [selectedAssetName, setSelectedAssetName] = useState(null);
   const [userRole, setUserRole] = useState("ANALYST");
-  const [governedSchema, setGovernedSchema] = useState(null);
   const [ragQuery, setRagQuery] = useState("");
   const [ragResult, setRagResult] = useState(null);
   const [actionLog, setActionLog] = useState("");
@@ -28,30 +28,19 @@ export function useMetagraphWorkspace() {
   const [isSearching, setIsSearching] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
 
-  // The "before" (business-db) and "after" (catalog-db) views for the Sync
-  // Demo tab, plus the watermark so the demo can show what syncUp() has
-  // processed so far.
+  // The "before" (business-db) and "after" (catalog-db) views, plus the
+  // watermark so the UI can show what syncUp() has processed so far.
   const [businessDbTables, setBusinessDbTables] = useState([]);
   const [catalogDbTables, setCatalogDbTables] = useState([]);
   const [syncWatermark, setSyncWatermark] = useState(0);
 
+  // Powers the Ask a Question suggestion chips only.
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
 
     try {
-      const [catalogResponse, lineageResponse] = await Promise.all([
-        request("/api/catalog"),
-        request("/api/lineage"),
-      ]);
-
-      const tables = catalogResponse.tables || [];
-      setCatalog(tables);
-      setSelectedTable((current) =>
-        tables.some((table) => table.tableName === current)
-          ? current
-          : tables[0]?.tableName || "",
-      );
-      setLineageData(lineageResponse);
+      const catalogResponse = await request("/api/catalog");
+      setCatalog(catalogResponse.tables || []);
       setError("");
     } catch (err) {
       setError(err.message);
@@ -61,7 +50,7 @@ export function useMetagraphWorkspace() {
   }, []);
 
   // Business-db (ground truth) vs catalog-db (what syncUp() has documented)
-  // side by side, so the Sync Demo tab can show the event-driven pipeline
+  // plus the lineage graph, so the UI can show the event-driven pipeline
   // catching up on its own.
   const loadContextLayer = useCallback(async () => {
     try {
@@ -89,11 +78,11 @@ export function useMetagraphWorkspace() {
     return () => window.clearTimeout(timeoutId);
   }, [loadWorkspace]);
 
-  // While the Sync Demo tab is open, poll business-db/catalog-db/lineage so
-  // changes applied via /api/exec show up on their own once the event
-  // listener (npm run sync:watch) reacts - no manual refresh needed.
+  // While Update Business DB or Context Layer is open, poll so changes
+  // applied via /api/exec show up on their own once the event listener
+  // (npm run sync:watch) reacts - no manual refresh needed.
   useEffect(() => {
-    if (activeTab !== "sync") {
+    if (!CONTEXT_LAYER_POLL_TABS.has(activeTab)) {
       return undefined;
     }
 
@@ -103,7 +92,7 @@ export function useMetagraphWorkspace() {
     };
 
     tick();
-    const intervalId = window.setInterval(tick, SYNC_TAB_POLL_MS);
+    const intervalId = window.setInterval(tick, POLL_MS);
 
     return () => {
       cancelled = true;
@@ -111,51 +100,30 @@ export function useMetagraphWorkspace() {
     };
   }, [activeTab, loadContextLayer]);
 
-  useEffect(() => {
-    if (activeTab !== "governance" || !selectedTable) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    const fetchGovernance = async () => {
-      try {
-        const data = await request(
-          `/api/governance/${encodeURIComponent(selectedTable)}?role=${userRole}`,
-        );
-
-        if (!cancelled) {
-          setGovernedSchema(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setGovernedSchema(null);
-          setError(err.message);
-        }
-      }
-    };
-
-    fetchGovernance();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, selectedTable, userRole]);
-
   const riskHits = useMemo(() => getRiskHits(sqlInput), [sqlInput]);
   const statementCount = useMemo(() => getStatementCount(sqlInput), [sqlInput]);
-  const effectiveGovernedSchema = selectedTable ? governedSchema : null;
-  const piiCount = effectiveGovernedSchema?.piiColumnCount || 0;
   const graphData = useMemo(
-    () => buildGraphData(lineageData, catalog),
-    [catalog, lineageData],
+    () => buildGraphData(lineageData, catalogDbTables),
+    [catalogDbTables, lineageData],
   );
-  const activeNav = useMemo(
-    () => NAV.find((tab) => tab.id === activeTab),
-    [activeTab],
-  );
-  const activeAccent = ACCENTS[activeNav?.accent || "amber"];
   const suggestions = useMemo(() => buildSuggestions(catalog), [catalog]);
+
+  const selectedAsset = useMemo(
+    () => catalogDbTables.find((table) => table.tableName === selectedAssetName) || null,
+    [catalogDbTables, selectedAssetName],
+  );
+  const upstreamOfSelected = useMemo(
+    () => (selectedAssetName ? graphData.edges.filter((edge) => edge.to === selectedAssetName).map((edge) => edge.from) : []),
+    [graphData, selectedAssetName],
+  );
+  const downstreamOfSelected = useMemo(
+    () => (selectedAssetName ? graphData.edges.filter((edge) => edge.from === selectedAssetName).map((edge) => edge.to) : []),
+    [graphData, selectedAssetName],
+  );
+  const piiColumnCount = useMemo(
+    () => catalogDbTables.reduce((sum, table) => sum + table.columns.filter((column) => column.isPii).length, 0),
+    [catalogDbTables],
+  );
 
   const handleExec = useCallback(async () => {
     setIsProcessing(true);
@@ -163,14 +131,14 @@ export function useMetagraphWorkspace() {
     setActionLog("Applying SQL to business-db…");
 
     try {
-      await request("/api/exec", {
+      const data = await request("/api/exec", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sqlContent: sqlInput }),
       });
 
       setActionLog(
-        "SQL applied to business-db. Watching for the event-driven sync to pick it up (requires `npm run sync:watch` running) — the panels below refresh automatically.",
+        `${data.message} Watching for the event-driven sync to pick it up (requires \`npm run sync:watch\` running) — panels refresh automatically.`,
       );
     } catch (err) {
       setActionLog(`Failed to apply SQL: ${err.message}`);
@@ -210,7 +178,7 @@ export function useMetagraphWorkspace() {
 
     try {
       await request("/api/purge", { method: "POST" });
-      setGovernedSchema(null);
+      setSelectedAssetName(null);
       setRagResult(null);
       setActionLog("Catalog purged.");
       await loadWorkspace();
@@ -252,14 +220,11 @@ export function useMetagraphWorkspace() {
 
   return {
     actionLog,
-    activeAccent,
-    activeNav,
     activeTab,
     businessDbTables,
-    catalog,
     catalogDbTables,
+    downstreamOfSelected,
     error,
-    governedSchema: effectiveGovernedSchema,
     graphData,
     handleExec,
     handlePurge,
@@ -270,22 +235,23 @@ export function useMetagraphWorkspace() {
     isPurging,
     isSearching,
     isSyncing,
-    loadWorkspace,
-    piiCount,
+    piiColumnCount,
     ragQuery,
     ragResult,
     riskHits,
-    selectedTable,
+    selectedAsset,
+    selectedAssetName,
     setActiveTab,
     setError,
     setRagQuery,
-    setSelectedTable,
+    setSelectedAssetName,
     setSqlInput,
     setUserRole,
     sqlInput,
     statementCount,
     suggestions,
     syncWatermark,
+    upstreamOfSelected,
     userRole,
   };
 }

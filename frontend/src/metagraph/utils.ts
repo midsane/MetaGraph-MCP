@@ -12,17 +12,34 @@ export function getStatementCount(sqlInput) {
     return sqlInput.split(';').filter(statement => statement.trim()).length;
 }
 
-export function buildGraphData(lineageData, catalog) {
-    const known = new Map((lineageData.nodes || []).map(node => [node.id, { id: node.id, label: node.id }]));
+// Enriches each lineage node with its catalog-db state (full column list +
+// PII count), so the Context Layer graph can render an expandable column
+// list directly on the node card without a second lookup. Nodes that only
+// exist via a Neo4j edge (picked up from query_logs before syncUp()
+// documented their schema) are marked `documented: false` so the graph can
+// style them as pending.
+export function buildGraphData(lineageData: any, catalogDbTables: any[]) {
+    const catalogByName: Record<string, any> = {};
+    catalogDbTables.forEach(table => { catalogByName[table.tableName] = table; });
 
-    catalog.forEach(table => {
-        known.set(table.tableName, { id: table.tableName, label: table.tableName });
+    const nodeIds = new Set<string>((lineageData.nodes || []).map((node: any) => node.id));
+    catalogDbTables.forEach(table => nodeIds.add(table.tableName));
+
+    const nodes = Array.from(nodeIds).map(id => {
+        const table = catalogByName[id];
+        return {
+            id,
+            label: id,
+            documented: Boolean(table),
+            columns: table ? table.columns : [],
+            piiCount: table ? table.columns.filter((column: any) => column.isPii).length : 0,
+        };
     });
 
-    // The API returns Neo4j-shaped {source, target} edges; vis-network (LineageGraph) expects {from, to}.
-    const edges = (lineageData.edges || []).map(edge => ({ from: edge.source, to: edge.target }));
+    // React Flow edges use {source, target} natively - same shape the API returns.
+    const edges = (lineageData.edges || []).map((edge: any) => ({ source: edge.source, target: edge.target }));
 
-    return { nodes: [...known.values()], edges };
+    return { nodes, edges };
 }
 
 export function buildSuggestions(catalog) {
