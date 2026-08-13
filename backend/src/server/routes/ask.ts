@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { vectorStore } from '../../core/vector-store.js';
+import { vectorStore } from '../../storage/vector-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
+import { LineageStore } from '../../storage/lineage-store.js';
 import { config } from '../../config/env.js';
 
 const router = Router();
@@ -45,8 +47,29 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // 2. Hydrate context blocks & enforce programmatic RBAC PII redaction (Zero LLM Overhead)
-        const contextBlocks = matches.map(match => {
+        // 2. Hydrate columns (Postgres) + lineage (Neo4j) for each vector hit
+        const hydratedMatches = await Promise.all(matches.map(async match => {
+            const [rawColumns, upstream, downstream] = await Promise.all([
+                match.tableId ? CatalogStore.getTableColumns(match.tableId) : Promise.resolve([]),
+                LineageStore.getUpstream(match.tableName),
+                LineageStore.getDownstream(match.tableName),
+            ]);
+
+            return {
+                tableName: match.tableName,
+                business_description: match.business_description,
+                columns: rawColumns.map(col => ({
+                    name: col.column_name,
+                    description: col.pii_reason || '',
+                    is_pii: col.is_pii,
+                })),
+                upstream_dependencies: upstream,
+                downstream_dependents: downstream,
+            };
+        }));
+
+        // 3. Build context blocks & enforce programmatic RBAC PII redaction (Zero LLM Overhead)
+        const contextBlocks = hydratedMatches.map(match => {
             let columns = match.columns || [];
 
             // Enforce PII Masking Policy for non-ADMIN users

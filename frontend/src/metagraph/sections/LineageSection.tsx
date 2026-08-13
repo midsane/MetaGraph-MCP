@@ -26,7 +26,7 @@ export function LineageSection({ catalog, graphData, isLoading, onRefresh }) {
           <LineageGraph nodes={graphData.nodes} edges={graphData.edges} />
         ) : (
           <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-white/15 text-sm text-[var(--text-faint)]">
-            {isLoading ? 'Loading lineage…' : 'Ingest SQL to populate the catalog and lineage graph.'}
+            {isLoading ? 'Loading lineage…' : 'Apply SQL or sync in the Sync Demo tab to populate the catalog and lineage graph.'}
           </div>
         )}
       </div>

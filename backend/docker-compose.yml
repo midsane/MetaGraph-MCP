@@ -1,6 +1,36 @@
-version: '3.8'
-
 services:
+  # Simulates the external company database that owns the live business data.
+  # MetaGraph only ever reads this via the PostgresConnector.
+  business-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: business_admin
+      POSTGRES_PASSWORD: business_password123
+      POSTGRES_DB: business
+    ports:
+      - "5433:5432"
+    volumes:
+      - business_pg_data:/var/lib/postgresql/data
+      - ./src/db/init-target-db.sql:/docker-entrypoint-initdb.d/1-init-target.sql
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+
+  # MetaGraph's own catalog store: tables, columns, PII tags, sync watermark.
+  catalog-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: metagraph
+    ports:
+      - "5434:5432"
+    volumes:
+      - catalog_pg_data:/var/lib/postgresql/data
+      - ./src/db/init-catalog.sql:/docker-entrypoint-initdb.d/1-init-catalog.sql
+
   qdrant:
     image: qdrant/qdrant:latest
     ports:
@@ -8,20 +38,6 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
-
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: metagraph
-    ports:
-      - "5432:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-      # This will auto-run our init scripts when the container starts
-      - ./src/db/init-catalog.sql:/docker-entrypoint-initdb.d/1-init-catalog.sql
-      - ./src/db/init-target-db.sql:/docker-entrypoint-initdb.d/2-init-target.sql
 
   neo4j:
     image: neo4j:5-community
@@ -34,6 +50,7 @@ services:
       - neo4j_data:/data
 
 volumes:
+  business_pg_data:
+  catalog_pg_data:
   qdrant_data:
-  pg_data:
   neo4j_data:

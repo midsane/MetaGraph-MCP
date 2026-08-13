@@ -1,23 +1,29 @@
 import { Router } from 'express';
-import { store } from '../../core/metadata-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
 
 const router = Router();
-
 
 // Lists the columns with RBAC given a table name
 router.get('/:tableName', async (req, res) => {
   try {
-    await store.loadFromDb();
-
-    const metadata = store.getMetadata(req.params.tableName);
-    if (!metadata) {
+    const table = await CatalogStore.getTableByName(req.params.tableName);
+    if (!table) {
       return res.status(404).json({ error: `Table "${req.params.tableName}" was not found in the catalog.` });
     }
 
+    const allColumns = await CatalogStore.getTableColumns(table.id);
     const role = String(req.query.role || 'ANALYST').toUpperCase();
     const isAdmin = role === 'ADMIN';
-    const columns = (metadata.column_metadata || []).map(column => {
-      if (!column.is_pii || isAdmin) return { ...column, redacted: false };
+
+    const columns = allColumns.map(column => {
+      if (!column.is_pii || isAdmin) {
+        return {
+          name: column.column_name,
+          description: column.pii_reason || '',
+          is_pii: column.is_pii,
+          redacted: false,
+        };
+      }
 
       return {
         name: '[REDACTED PII COLUMN]',
@@ -28,15 +34,14 @@ router.get('/:tableName', async (req, res) => {
     });
 
     res.json({
-      tableName: req.params.tableName,
-      business_description: metadata.business_description || '',
-      confidence_score: metadata.confidence_score,
+      tableName: table.table_name,
+      business_description: table.business_summary || '',
       columns,
-      piiColumnCount: (metadata.column_metadata || []).filter(column => column.is_pii).length,
+      piiColumnCount: allColumns.filter(column => column.is_pii).length,
       role: isAdmin ? 'ADMIN' : 'ANALYST',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

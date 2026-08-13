@@ -1,4 +1,8 @@
-import { Parser } from 'node-sql-parser';
+// node-sql-parser ships a webpack/UMD CJS bundle whose named exports are not
+// statically analyzable by Node's ESM loader, so we take the default import
+// (the whole CJS `module.exports` object) and destructure at runtime.
+import pkg from 'node-sql-parser';
+const { Parser } = pkg;
 
 export interface LineageDependency {
   target: string;
@@ -6,7 +10,7 @@ export interface LineageDependency {
 }
 
 export class ASTParser {
-  private parser: Parser;
+  private parser: InstanceType<typeof Parser>;
 
   constructor() {
     this.parser = new Parser();

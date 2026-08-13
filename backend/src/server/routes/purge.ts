@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { store } from '../../core/metadata-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
+import { LineageStore } from '../../storage/lineage-store.js';
+import { vectorStore } from '../../storage/vector-store.js';
 
 const router = Router();
 
@@ -7,17 +9,21 @@ const router = Router();
  * @openapi
  * /api/purge:
  *   post:
- *     summary: Purge existing data in vector db
+ *     summary: Purge all catalog, lineage and vector data (catalog-db, Neo4j, Qdrant)
  *     responses:
  *       200:
- *         description: Database and lineage graphs purged successfully.
+ *         description: Catalog, lineage graph and vector index purged successfully.
  */
 router.post('/', async (req, res) => {
   try {
-    await store.purge();
-    res.status(200).json({ message: 'Database and lineage graphs purged successfully.' });
+    await Promise.all([
+      CatalogStore.purge(),
+      LineageStore.purge(),
+      vectorStore.purge(),
+    ]);
+    res.status(200).json({ message: 'Catalog, lineage graph and vector index purged successfully.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

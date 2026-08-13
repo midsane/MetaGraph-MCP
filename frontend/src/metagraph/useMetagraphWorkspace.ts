@@ -8,8 +8,10 @@ import {
   getStatementCount,
 } from "./utils.ts";
 
+const SYNC_TAB_POLL_MS = 3000;
+
 export function useMetagraphWorkspace() {
-  const [activeTab, setActiveTab] = useState("ingest");
+  const [activeTab, setActiveTab] = useState("sync");
   const [sqlInput, setSqlInput] = useState(INITIAL_SQL);
   const [catalog, setCatalog] = useState([]);
   const [lineageData, setLineageData] = useState({ nodes: [], edges: [] });
@@ -18,12 +20,20 @@ export function useMetagraphWorkspace() {
   const [governedSchema, setGovernedSchema] = useState(null);
   const [ragQuery, setRagQuery] = useState("");
   const [ragResult, setRagResult] = useState(null);
-  const [ingestLogs, setIngestLogs] = useState("");
+  const [actionLog, setActionLog] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
+
+  // The "before" (business-db) and "after" (catalog-db) views for the Sync
+  // Demo tab, plus the watermark so the demo can show what syncUp() has
+  // processed so far.
+  const [businessDbTables, setBusinessDbTables] = useState([]);
+  const [catalogDbTables, setCatalogDbTables] = useState([]);
+  const [syncWatermark, setSyncWatermark] = useState(0);
 
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
@@ -50,6 +60,27 @@ export function useMetagraphWorkspace() {
     }
   }, []);
 
+  // Business-db (ground truth) vs catalog-db (what syncUp() has documented)
+  // side by side, so the Sync Demo tab can show the event-driven pipeline
+  // catching up on its own.
+  const loadContextLayer = useCallback(async () => {
+    try {
+      const [businessResponse, catalogResponse, lineageResponse] = await Promise.all([
+        request("/api/retrieve-business-db"),
+        request("/api/retrieve-catalog-db"),
+        request("/api/lineage"),
+      ]);
+
+      setBusinessDbTables(businessResponse.tables || []);
+      setCatalogDbTables(catalogResponse.tables || []);
+      setSyncWatermark(catalogResponse.syncWatermark ?? 0);
+      setLineageData(lineageResponse);
+      setError("");
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void loadWorkspace();
@@ -57,6 +88,28 @@ export function useMetagraphWorkspace() {
 
     return () => window.clearTimeout(timeoutId);
   }, [loadWorkspace]);
+
+  // While the Sync Demo tab is open, poll business-db/catalog-db/lineage so
+  // changes applied via /api/exec show up on their own once the event
+  // listener (npm run sync:watch) reacts - no manual refresh needed.
+  useEffect(() => {
+    if (activeTab !== "sync") {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const tick = () => {
+      if (!cancelled) void loadContextLayer();
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, SYNC_TAB_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [activeTab, loadContextLayer]);
 
   useEffect(() => {
     if (activeTab !== "governance" || !selectedTable) {
@@ -70,7 +123,7 @@ export function useMetagraphWorkspace() {
         const data = await request(
           `/api/governance/${encodeURIComponent(selectedTable)}?role=${userRole}`,
         );
-        
+
         if (!cancelled) {
           setGovernedSchema(data);
         }
@@ -104,30 +157,47 @@ export function useMetagraphWorkspace() {
   const activeAccent = ACCENTS[activeNav?.accent || "amber"];
   const suggestions = useMemo(() => buildSuggestions(catalog), [catalog]);
 
-  const handleIngest = useCallback(async () => {
+  const handleExec = useCallback(async () => {
     setIsProcessing(true);
     setError("");
-    setIngestLogs("Parsing SQL and enriching table metadata…");
+    setActionLog("Applying SQL to business-db…");
 
     try {
-      const data = await request("/api/ingest", {
+      await request("/api/exec", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sqlContent: sqlInput }),
       });
 
-      setIngestLogs(
-        `Ingestion complete. Registered ${data.tables?.length || 0} table(s).`,
+      setActionLog(
+        "SQL applied to business-db. Watching for the event-driven sync to pick it up (requires `npm run sync:watch` running) — the panels below refresh automatically.",
       );
-      await loadWorkspace();
-      setActiveTab("lineage");
     } catch (err) {
-      setIngestLogs(`Ingestion failed: ${err.message}`);
+      setActionLog(`Failed to apply SQL: ${err.message}`);
       setError(err.message);
     } finally {
       setIsProcessing(false);
     }
-  }, [loadWorkspace, sqlInput]);
+  }, [sqlInput]);
+
+  const handleSyncNow = useCallback(async () => {
+    setIsSyncing(true);
+    setError("");
+    setActionLog("Running syncUp() manually…");
+
+    try {
+      const result = await request("/api/sync", { method: "POST" });
+      setActionLog(
+        `Sync complete — new: ${result.newTables.length}, changed: ${result.changedTables.length}, dropped: ${result.droppedTables.length}, query logs processed: ${result.queryLogsProcessed}, lineage edges added: ${result.lineageEdgesAdded}.`,
+      );
+      await loadContextLayer();
+    } catch (err) {
+      setActionLog(`Sync failed: ${err.message}`);
+      setError(err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [loadContextLayer]);
 
   const handlePurge = useCallback(async () => {
     if (
@@ -142,14 +212,15 @@ export function useMetagraphWorkspace() {
       await request("/api/purge", { method: "POST" });
       setGovernedSchema(null);
       setRagResult(null);
-      setIngestLogs("Catalog purged.");
+      setActionLog("Catalog purged.");
       await loadWorkspace();
+      await loadContextLayer();
     } catch (err) {
       setError(err.message);
     } finally {
       setIsPurging(false);
     }
-  }, [loadWorkspace]);
+  }, [loadWorkspace, loadContextLayer]);
 
   const handleSearch = useCallback(
     async (event, query = ragQuery) => {
@@ -180,21 +251,25 @@ export function useMetagraphWorkspace() {
   );
 
   return {
+    actionLog,
     activeAccent,
     activeNav,
     activeTab,
+    businessDbTables,
     catalog,
+    catalogDbTables,
     error,
     governedSchema: effectiveGovernedSchema,
     graphData,
-    handleIngest,
+    handleExec,
     handlePurge,
     handleSearch,
-    ingestLogs,
+    handleSyncNow,
     isLoading,
     isProcessing,
     isPurging,
     isSearching,
+    isSyncing,
     loadWorkspace,
     piiCount,
     ragQuery,
@@ -210,6 +285,7 @@ export function useMetagraphWorkspace() {
     sqlInput,
     statementCount,
     suggestions,
+    syncWatermark,
     userRole,
   };
 }

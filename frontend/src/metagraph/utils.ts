@@ -13,13 +13,16 @@ export function getStatementCount(sqlInput) {
 }
 
 export function buildGraphData(lineageData, catalog) {
-    const known = new Map((lineageData.nodes || []).map(node => [node.id, node]));
+    const known = new Map((lineageData.nodes || []).map(node => [node.id, { id: node.id, label: node.id }]));
 
     catalog.forEach(table => {
         known.set(table.tableName, { id: table.tableName, label: table.tableName });
     });
 
-    return { nodes: [...known.values()], edges: lineageData.edges || [] };
+    // The API returns Neo4j-shaped {source, target} edges; vis-network (LineageGraph) expects {from, to}.
+    const edges = (lineageData.edges || []).map(edge => ({ from: edge.source, to: edge.target }));
+
+    return { nodes: [...known.values()], edges };
 }
 
 export function buildSuggestions(catalog) {

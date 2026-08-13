@@ -4,8 +4,7 @@ import { config } from '../config/env.js';
 
 const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
-const qdrant = new QdrantClient({ url: qdrantUrl });
+const qdrant = new QdrantClient({ url: config.qdrant.url });
 
 const COLLECTION_NAME = 'metagraph_metadata_catalog';
 const EMBEDDING_MODEL = 'gemini-embedding-2';
@@ -13,6 +12,7 @@ const VECTOR_SIZE = 768;
 
 export interface SearchResult {
   tableName: string;
+  tableId: number | null;
   business_description: string;
   similarity_score: number;
 }
@@ -81,12 +81,13 @@ export class ProductionVectorStore {
 
   /**
    * Index or update a table's business definition vector in Qdrant.
-   * POINTER PATTERN: Only stores the business_description and tableName.
+   * POINTER PATTERN: stores the business_description, tableName, and the
+   * table's id in catalog-db (the join key back to Postgres for columns/PII).
    * Schema/Columns & Lineage are joined dynamically at runtime from Postgres and Neo4j.
    */
-  async indexMetadata(tableName: string, businessDescription: string) {
+  async indexMetadata(tableName: string, businessDescription: string, tableId: number) {
     await this.init();
-    
+
     // Embed the table context (Table Name + Business Summary)
     const textToEmbed = `Table: ${tableName}\nDescription: ${businessDescription}`;
     const vector = await this.getEmbedding(textToEmbed);
@@ -101,6 +102,7 @@ export class ProductionVectorStore {
           vector: vector,
           payload: {
             tableName,
+            tableId,
             business_description: businessDescription
           }
         }
@@ -140,9 +142,10 @@ export class ProductionVectorStore {
     }
 
     return hits.map(hit => {
-      const payload = hit.payload as { tableName?: string; business_description?: string };
+      const payload = hit.payload as { tableName?: string; tableId?: number; business_description?: string };
       return {
         tableName: payload?.tableName || '',
+        tableId: payload?.tableId ?? null,
         business_description: payload?.business_description || '',
         similarity_score: parseFloat((hit.score || 0).toFixed(4))
       };

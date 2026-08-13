@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { store } from '../../core/metadata-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
 
 const router = Router();
 
-// Lists the tables known to the metadata catalog. This is intentionally a
-// lightweight endpoint so clients do not need semantic search for navigation.
+// Lists the tables known to the metadata catalog (catalog-db). This is
+// intentionally a lightweight endpoint so clients do not need semantic
+// search for navigation.
 
 /**
  * @openapi
@@ -14,18 +15,19 @@ const router = Router();
  */
 router.get('/', async (_req, res) => {
   try {
-    await store.loadFromDb();
+    const tables = await CatalogStore.getAllTables();
 
-    const tables = Array.from(store.tableMetadata.entries())
-      .map(([tableName, metadata]) => ({
-        tableName,
-        business_description: metadata.business_description || '',
-        columnCount: metadata.column_metadata?.length || store.getSchema(tableName).length,
-        piiColumnCount: metadata.column_metadata?.filter(column => column.is_pii).length || 0,
-      }))
-      .sort((left, right) => left.tableName.localeCompare(right.tableName));
+    const enriched = await Promise.all(tables.map(async table => {
+      const columns = await CatalogStore.getTableColumns(table.id);
+      return {
+        tableName: table.table_name,
+        business_description: table.business_summary || '',
+        columnCount: columns.length,
+        piiColumnCount: columns.filter(c => c.is_pii).length,
+      };
+    }));
 
-    res.json({ tables });
+    res.json({ tables: enriched });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }

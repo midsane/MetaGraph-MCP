@@ -1,8 +1,8 @@
-import { store } from '../../core/metadata-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
 
 export const getGovernedSchemaTool = {
   name: 'get_governed_schema',
-  description: 'Returns pre-indexed schema metadata with automatic RBAC PII redaction.',
+  description: 'Returns catalog-db schema metadata (columns + business description) with automatic RBAC PII redaction.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -12,10 +12,9 @@ export const getGovernedSchemaTool = {
     required: ['tableName', 'userRole']
   },
   execute: async (args) => {
-    // Zero-async, instant O(1) memory lookup from hydrated Map
-    const metadata = store.getMetadata(args.tableName);
+    const table = await CatalogStore.getTableByName(args.tableName);
 
-    if (!metadata) {
+    if (!table) {
       return {
         content: [{
           type: 'text',
@@ -24,25 +23,32 @@ export const getGovernedSchemaTool = {
       };
     }
 
-    // Deep clone to prevent mutating internal cache state
-    const responsePayload = JSON.parse(JSON.stringify(metadata));
+    const columns = await CatalogStore.getTableColumns(table.id);
+    const isAdmin = args.userRole === 'ADMIN';
 
-    // Enforce PII Redaction
-    if (args.userRole !== 'ADMIN') {
-      responsePayload.column_metadata = responsePayload.column_metadata.map(col => {
-        if (col.is_pii) {
-          return {
-            ...col,
-            name: `[REDACTED_PII_${col.name.toUpperCase()}]`,
-            description: 'ACCESS DENIED: PII Masked due to ANALYST role policies.'
-          };
-        }
-        return col;
-      });
-    }
+    const column_metadata = columns.map(col => {
+      if (col.is_pii && !isAdmin) {
+        return {
+          name: `[REDACTED_PII_${col.column_name.toUpperCase()}]`,
+          description: 'ACCESS DENIED: PII Masked due to ANALYST role policies.',
+          is_pii: true,
+        };
+      }
+      return {
+        name: col.column_name,
+        description: col.pii_reason || '',
+        is_pii: col.is_pii,
+      };
+    });
 
-    return { 
-      content: [{ type: 'text', text: JSON.stringify(responsePayload, null, 2) }] 
+    const responsePayload = {
+      tableName: table.table_name,
+      business_description: table.business_summary,
+      column_metadata,
+    };
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(responsePayload, null, 2) }]
     };
   }
 };

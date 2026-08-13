@@ -58,7 +58,7 @@ export function GovernanceSection({ catalog, governedSchema, isLoading, piiCount
             </div>
           </>
         ) : (
-          <div className="p-12 text-center text-sm text-[var(--text-faint)]">{isLoading ? 'Loading catalog…' : 'Ingest SQL to view governed schemas.'}</div>
+          <div className="p-12 text-center text-sm text-[var(--text-faint)]">{isLoading ? 'Loading catalog…' : 'Apply SQL or sync in the Sync Demo tab to view governed schemas.'}</div>
         )}
       </div>
     </section>

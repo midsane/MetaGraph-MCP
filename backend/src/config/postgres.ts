@@ -1,12 +1,13 @@
 import { Pool } from 'pg';
+import { config } from './env.js';
 
-// Connects to the local Postgres container defined in docker-compose
+// Connects to MetaGraph's own catalog-db container (see docker-compose.yml)
 export const pg = new Pool({
-  user: process.env.POSTGRES_USER || 'admin',
-  host: process.env.POSTGRES_HOST || 'localhost',
-  database: process.env.POSTGRES_DB || 'metagraph',
-  password: process.env.POSTGRES_PASSWORD || 'password123',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  user: config.catalogDb.user,
+  host: config.catalogDb.host,
+  database: config.catalogDb.database,
+  password: config.catalogDb.password,
+  port: config.catalogDb.port,
 });
 
 pg.on('error', (err) => {

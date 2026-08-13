@@ -1,12 +1,12 @@
 import {
     GitBranch,
+    RefreshCw,
     ShieldAlert,
     Sparkles,
-    UploadCloud,
 } from 'lucide-react';
 
 export const NAV = [
-    { id: 'ingest', icon: UploadCloud, label: 'Ingest', accent: 'amber' },
+    { id: 'sync', icon: RefreshCw, label: 'Sync Demo', accent: 'amber' },
     { id: 'lineage', icon: GitBranch, label: 'Lineage', accent: 'teal' },
     { id: 'governance', icon: ShieldAlert, label: 'Governance', accent: 'amber' },
     { id: 'rag', icon: Sparkles, label: 'Ask catalog', accent: 'violet' },
@@ -14,15 +14,11 @@ export const NAV = [
 
 export const PII_KEYWORDS = ['ssn', 'email', 'phone', 'dob', 'password', 'credit_card', 'address', 'card_number', 'cvv'];
 
-export const INITIAL_SQL = `CREATE TABLE raw_users (
-  id UUID,
-  full_name VARCHAR(255),
-  email VARCHAR(255),
-  ssn VARCHAR(11)
-);
-
-CREATE TABLE stg_users AS
-SELECT id, full_name, email FROM raw_users;`;
+export const INITIAL_SQL = `-- Executed directly against business-db (schema-qualify with target_db.)
+-- Watch the Lineage/Governance tabs update on their own once the event
+-- listener (npm run sync:watch) reacts to this change.
+CREATE TABLE target_db.user_contacts AS
+SELECT id, email FROM target_db.raw_users;`;
 
 export const ACCENTS = {
     amber: { text: 'text-[var(--amber)]', bg: 'bg-[var(--amber-soft)]', ring: 'ring-[var(--amber)]/30', solid: '#F0A63A' },

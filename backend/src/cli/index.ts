@@ -1,61 +1,61 @@
 #!/usr/bin/env node
 import fs from 'fs';
-import { ASTParser } from '../core/ast-parser.js';
-import { store } from '../core/metadata-store.js';
-import { ScribeAgent } from '../agents/scribe-agent.js';
+import { SyncEngine } from '../core/sync-engine.js';
+import { businessConnector } from '../connectors/postgres-connector.js';
+import { stripSqlComments } from '../core/sql-utils.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
-if (command === 'ingest' && args[1]) {
-  const filePath = args[1];
+async function runSync() {
+  console.log('🔄 Running one-shot syncUp() against business-db...');
+  const result = await SyncEngine.syncUp();
+  console.log('✅ Sync complete:', JSON.stringify(result, null, 2));
+}
+
+async function runExec(filePath: string) {
   if (!fs.existsSync(filePath)) {
     console.error(`File not found: ${filePath}`);
     process.exit(1);
   }
 
+  // Applies the file's SQL to business-db AND logs each statement to
+  // query_logs, simulating a migration/query landing on the live business
+  // database. This fires the DDL/query_logs triggers installed there - if
+  // the event listener (`npm run sync:watch`) is running, catalog-db/Neo4j/
+  // Qdrant update automatically in response, lineage included.
   const sqlContent = fs.readFileSync(filePath, 'utf-8');
-  const parser = new ASTParser();
-  const queries = sqlContent.split(';').map(q => q.trim()).filter(Boolean);
+  const cleanSql = stripSqlComments(sqlContent);
 
-  console.log(`🔍 Processing ${queries.length} SQL migration statements from ${filePath}...`);
-
-  // 1. Extract and sync DDL Table Schemas incrementally
-  const ddlEntries = parser.extractDDLSchemas(sqlContent);
-  for (const entry of ddlEntries) {
-    if (entry.type === 'CREATE') {
-      console.log(`📦 Found CREATE TABLE [${entry.tableName}] with ${entry.columns.length} columns.`);
-      await store.mergeTableSchema(entry.tableName, entry.columns, ScribeAgent);
-    } else if (entry.type === 'ALTER_ADD') {
-      console.log(`➕ Found ALTER TABLE [${entry.tableName}] ADD COLUMN [${entry.columns[0]}].`);
-      const existingCols = store.getSchema(entry.tableName);
-      const updatedCols = Array.from(new Set([...existingCols, ...entry.columns]));
-      await store.mergeTableSchema(entry.tableName, updatedCols, ScribeAgent);
-    }
-  }
-
-  // 2. Extract and sync Lineage DAG (Updates BOTH Target and Source in Qdrant)
-  for (const q of queries) {
-    const { sources, target } = parser.extractDependencies(q);
-    if (target) {
-      for (const src of sources) {
-        await store.addLineageDependency(target, src);
-        console.log(`🔗 Lineage mapped: ${src} ──> ${target}`);
-      }
-    }
-  }
-
-  console.log('✅ Ingestion complete! Lineage DAG & Metadata auto-indexed to Qdrant Vector DB.');
-  process.exit(0);
-
-} else {
-  console.log(`
-Atlan Active Metadata CLI
--------------------------
-Usage:
-  node src/cli/index.js ingest <path-to-sql-file.sql>
-
-Example:
-  node src/cli/index.js ingest ./migrations/001_init.sql
-  `);
+  console.log(`⚡ Applying SQL from ${filePath} to business-db...`);
+  const { statementsApplied } = await businessConnector.applyAndLog(cleanSql);
+  console.log(`✅ ${statementsApplied} statement(s) applied and logged. If the event listener (npm run sync:watch) is running, catalog-db/Neo4j/Qdrant will update automatically.`);
 }
+
+async function main() {
+  if (command === 'sync') {
+    await runSync();
+  } else if (command === 'exec' && args[1]) {
+    await runExec(args[1]);
+  } else {
+    console.log(`
+MetaGraph Ingestion CLI
+------------------------
+Usage:
+  npm run cli sync                       Run one-shot syncUp() against business-db
+  npm run cli exec <path-to-sql-file>    Apply a SQL file to business-db (triggers event-driven sync)
+
+Examples:
+  npm run cli sync
+  npm run cli exec ./migrations/001_add_column.sql
+    `);
+    process.exit(command ? 1 : 0);
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch(err => {
+    console.error('[CLI Error]', err);
+    process.exit(1);
+  });

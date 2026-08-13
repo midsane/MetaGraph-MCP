@@ -1,4 +1,6 @@
-import { vectorStore } from '../../core/vector-store.js';
+import { vectorStore } from '../../storage/vector-store.js';
+import { CatalogStore } from '../../storage/catalog-store.js';
+import { LineageStore } from '../../storage/lineage-store.js';
 
 export const vectorSearchTool = {
   name: 'search_business_glossary',
@@ -6,17 +8,17 @@ export const vectorSearchTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      query: { 
-        type: 'string', 
-        description: 'Natural language search query e.g. "user social security numbers" or "lifetime revenue calculations"' 
+      query: {
+        type: 'string',
+        description: 'Natural language search query e.g. "user social security numbers" or "lifetime revenue calculations"'
       },
-      userRole: { 
-        type: 'string', 
-        description: 'Role of the requesting user or agent: ADMIN or ANALYST (default: ANALYST)' 
+      userRole: {
+        type: 'string',
+        description: 'Role of the requesting user or agent: ADMIN or ANALYST (default: ANALYST)'
       },
-      topK: { 
-        type: 'number', 
-        description: 'Number of top matching tables to return (default: 3)' 
+      topK: {
+        type: 'number',
+        description: 'Number of top matching tables to return (default: 3)'
       }
     },
     required: ['query']
@@ -24,7 +26,7 @@ export const vectorSearchTool = {
   execute: async (args) => {
     const role = args.userRole || 'ANALYST';
 
-    // 1. Run vector similarity search in Qdrant
+    // 1. Run vector similarity search in Qdrant (pointer: tableName + tableId + description)
     const matches = await vectorStore.searchSemantic(args.query, args.topK || 3);
 
     if (!matches || matches.length === 0) {
@@ -36,9 +38,19 @@ export const vectorSearchTool = {
       };
     }
 
-    // 2. Format payload & apply RBAC PII redaction
-    const enrichedResults = matches.map(hit => {
-      let columns = hit.columns || [];
+    // 2. Hydrate each pointer with columns (Postgres) + lineage (Neo4j), and apply RBAC PII redaction
+    const enrichedResults = await Promise.all(matches.map(async hit => {
+      const [rawColumns, upstream, downstream] = await Promise.all([
+        hit.tableId ? CatalogStore.getTableColumns(hit.tableId) : Promise.resolve([]),
+        LineageStore.getUpstream(hit.tableName),
+        LineageStore.getDownstream(hit.tableName),
+      ]);
+
+      let columns = rawColumns.map(col => ({
+        name: col.column_name,
+        description: col.pii_reason || '',
+        is_pii: col.is_pii,
+      }));
 
       // Enforce RBAC PII Redaction for non-admin requests
       if (role !== 'ADMIN') {
@@ -59,13 +71,13 @@ export const vectorSearchTool = {
         business_description: hit.business_description,
         match_score: hit.similarity_score,
         columns,
-        upstream_dependencies: hit.upstream_dependencies || [],
-        downstream_dependents: hit.downstream_dependents || []
+        upstream_dependencies: upstream,
+        downstream_dependents: downstream
       };
-    });
+    }));
 
-    return { 
-      content: [{ type: 'text', text: JSON.stringify(enrichedResults, null, 2) }] 
+    return {
+      content: [{ type: 'text', text: JSON.stringify(enrichedResults, null, 2) }]
     };
   }
 };

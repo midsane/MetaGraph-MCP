@@ -3,7 +3,7 @@ import { ErrorBanner } from './metagraph/components/ErrorBanner.tsx';
 import { GlobalStyle } from './metagraph/components/GlobalStyle.tsx';
 import { Sidebar } from './metagraph/components/Sidebar.tsx';
 import { GovernanceSection } from './metagraph/sections/GovernanceSection.tsx';
-import { IngestSection } from './metagraph/sections/IngestSection.tsx';
+import { SyncSection } from './metagraph/sections/SyncSection.tsx';
 import { LineageSection } from './metagraph/sections/LineageSection.tsx';
 import { RagSection } from './metagraph/sections/RagSection.tsx';
 import { useMetagraphWorkspace } from './metagraph/useMetagraphWorkspace.ts';
@@ -28,17 +28,22 @@ export default function App() {
         <main className="mg-scroll min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
           <ErrorBanner error={workspace.error} onDismiss={() => workspace.setError('')} />
 
-          {workspace.activeTab === 'ingest' && (
-            <IngestSection
-              catalog={workspace.catalog}
-              ingestLogs={workspace.ingestLogs}
+          {workspace.activeTab === 'sync' && (
+            <SyncSection
+              actionLog={workspace.actionLog}
+              businessDbTables={workspace.businessDbTables}
+              catalogDbTables={workspace.catalogDbTables}
+              graphData={workspace.graphData}
               isLoading={workspace.isLoading}
               isProcessing={workspace.isProcessing}
-              onIngest={workspace.handleIngest}
+              isSyncing={workspace.isSyncing}
+              onExec={workspace.handleExec}
               onSqlChange={workspace.setSqlInput}
+              onSyncNow={workspace.handleSyncNow}
               riskHits={workspace.riskHits}
               sqlInput={workspace.sqlInput}
               statementCount={workspace.statementCount}
+              syncWatermark={workspace.syncWatermark}
             />
           )}
 
