@@ -2,7 +2,7 @@ import { businessConnector, type TableSchema } from '../connectors/postgres-conn
 import { CatalogStore, type StoredTable } from '../storage/catalog-store.js';
 import { LineageStore } from '../storage/lineage-store.js';
 import { vectorStore } from '../storage/vector-store.js';
-import { ScribeAgent } from '../agents/scribe-agent.js';
+import { ScribeAgent } from '../agent/scribe-agent.js';
 import { ASTParser } from './ast-parser.js';
 
 const astParser = new ASTParser();
@@ -23,7 +23,7 @@ function sameColumnSet(live: TableSchema['columns'], stored: StoredTable['column
 }
 
 /**
- * Implements the ingestion.md "syncup" contract:
+ * The "syncUp" contract (see detailed_working/01-ingestion-pipeline.md):
  *  1. Diff live business schema (information_schema) against catalog-db.
  *  2. NEW/CHANGED tables -> Scribe Agent for business defs + PII tagging on
  *     NEW columns only (never overwrite an existing PII verdict).

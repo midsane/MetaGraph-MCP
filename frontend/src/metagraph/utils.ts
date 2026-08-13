@@ -1,5 +1,4 @@
 import { PII_KEYWORDS } from './constants.ts';
-import { backendBaseUrl } from './api.ts';
 
 export function getRiskHits(sqlInput) {
     return sqlInput.split('\n').flatMap(line => {

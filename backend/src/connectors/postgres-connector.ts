@@ -22,8 +22,10 @@ export class PostgresConnector {
   private schemaName: string;
 
   constructor(connectionString: string = businessDbConnectionString(), schemaName: string = config.businessDb.schema) {
-    // Connects to the live company database (business-db container).
-    // MetaGraph only ever reads from this connection - see ingestion.md.
+    // Connects to the live company database (business-db container). Reads
+    // back its schema/query_logs for ingestion; the only write path is
+    // applyAndLog() below, used by /api/exec and the execute_business_query
+    // tool. See detailed_working/01-ingestion-pipeline.md.
     this.pool = new Pool({ connectionString });
     this.schemaName = schemaName;
   }

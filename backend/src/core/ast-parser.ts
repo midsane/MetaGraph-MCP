@@ -2,6 +2,7 @@
 // statically analyzable by Node's ESM loader, so we take the default import
 // (the whole CJS `module.exports` object) and destructure at runtime.
 import pkg from 'node-sql-parser';
+import { stripSqlComments } from './sql-utils.js';
 const { Parser } = pkg;
 
 export interface LineageDependency {
@@ -17,16 +18,6 @@ export class ASTParser {
   }
 
   /**
-   * Cleans SQL of comments before passing to the strict AST parser
-   */
-  private cleanSql(sql: string): string {
-    return sql
-      .replace(/--.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .trim();
-  }
-
-  /**
    * Strips schema prefixes (e.g., 'target_db.users' -> 'users')
    */
   private extractTableName(rawName: string): string {
@@ -39,7 +30,7 @@ export class ASTParser {
    */
   extractDependencies(sql: string): LineageDependency {
     try {
-      const clean = this.cleanSql(sql);
+      const clean = stripSqlComments(sql).trim();
       if (!clean) return { target: '', sources: [] };
 
       // tableList returns an array of strings like: "select::null::users"

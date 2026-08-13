@@ -17,7 +17,13 @@ export function AppHeader({ activeTab, isPurging, onPurge, onSelectTab }) {
             </div>
           </div>
 
-      
+          <button
+            onClick={onPurge}
+            disabled={isPurging}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-dim)] transition hover:border-[var(--rose)]/40 hover:text-[var(--rose)] disabled:opacity-50"
+          >
+            <Trash2 size={13} />{isPurging ? 'Purging…' : 'Purge catalog'}
+          </button>
         </div>
 
         <nav className="flex gap-1.5 pt-1 pl-1 overflow-x-auto pb-3">

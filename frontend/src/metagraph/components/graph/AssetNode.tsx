@@ -1,29 +1,13 @@
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Database, Hash, ShieldAlert, Type } from 'lucide-react';
-
-export const NODE_WIDTH = 320;
-export const VISIBLE_COLUMNS = 5;
-export const HEADER_HEIGHT = 76;
-export const TOGGLE_ROW_HEIGHT = 41;
-export const COLUMN_ROW_HEIGHT = 37;
-export const SHOW_MORE_ROW_HEIGHT = 37;
-export const PENDING_ROW_HEIGHT = 46;
+import { NODE_WIDTH, VISIBLE_COLUMNS } from './asset-node-layout.ts';
 
 function iconForType(dataType) {
   const t = (dataType || '').toLowerCase();
   if (t.includes('time') || t.includes('date')) return CalendarDays;
   if (t.includes('int') || t.includes('numeric') || t.includes('decimal') || t.includes('serial') || t.includes('uuid')) return Hash;
   return Type;
-}
-
-/** Estimates a node's rendered height for the dagre layout pass (default-expanded, capped at VISIBLE_COLUMNS). */
-export function estimateNodeHeight(node) {
-  if (!node.documented) return HEADER_HEIGHT + PENDING_ROW_HEIGHT;
-
-  const visibleRows = Math.min(node.columns.length, VISIBLE_COLUMNS);
-  const showMoreRow = node.columns.length > VISIBLE_COLUMNS ? SHOW_MORE_ROW_HEIGHT : 0;
-  return HEADER_HEIGHT + TOGGLE_ROW_HEIGHT + visibleRows * COLUMN_ROW_HEIGHT + showMoreRow;
 }
 
 export function AssetNode({ data, selected }) {

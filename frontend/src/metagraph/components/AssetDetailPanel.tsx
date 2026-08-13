@@ -32,6 +32,27 @@ export function AssetDetailPanel({ tableName, table, upstream, downstream, onClo
             {piiCount ? <Pill tone="danger">{piiCount} PII</Pill> : <Pill tone="good">No PII</Pill>}
           </div>
 
+          {(upstream.length > 0 || downstream.length > 0) && (
+            <div className="space-y-4 border-b border-[var(--border)] p-5">
+              {upstream.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">Upstream sources</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {upstream.map(name => <Pill key={name} tone="brand">{name}</Pill>)}
+                  </div>
+                </div>
+              )}
+              {downstream.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">Downstream dependents</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {downstream.map(name => <Pill key={name} tone="warn">{name}</Pill>)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border-b border-[var(--border)] p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">Business definition</p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-dim)]">{table.businessSummary || 'No description available.'}</p>

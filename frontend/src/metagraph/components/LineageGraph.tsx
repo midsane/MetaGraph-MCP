@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, ReactFlowProvider } from '@xyflow/react';
 import dagre from 'dagre';
 import '@xyflow/react/dist/style.css';
-import { AssetNode, NODE_WIDTH, estimateNodeHeight } from './graph/AssetNode.tsx';
+import { AssetNode } from './graph/AssetNode.tsx';
+import { NODE_WIDTH, estimateNodeHeight } from './graph/asset-node-layout.ts';
 import { CollapsibleEdge } from './graph/CollapsibleEdge.tsx';
 
 const nodeTypes = { asset: AssetNode };
@@ -48,7 +49,6 @@ export function LineageGraph({ nodes, edges, onSelect, selectedId }) {
         type: 'collapsible',
       })),
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, selectedId]);
 
   return (
