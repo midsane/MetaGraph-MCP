@@ -4,8 +4,16 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { getLineageTool } from './tools/get-lineage.js';
 import { getGovernedSchemaTool } from './tools/get-governed-schema.js';
 import { vectorSearchTool } from './tools/search-metadata.js';
+import { checkDownstreamImpactTool } from './tools/check-downstream-impact.js';
+import { listCatalogTablesTool } from './tools/list-catalog-tables.js';
 
-const tools = [getLineageTool, getGovernedSchemaTool, vectorSearchTool];
+const tools = [
+  getLineageTool,
+  getGovernedSchemaTool,
+  vectorSearchTool,
+  checkDownstreamImpactTool,
+  listCatalogTablesTool,
+];
 
 const server = new Server(
     { name: 'MetaGraph-MCP', version: '1.0.0' },

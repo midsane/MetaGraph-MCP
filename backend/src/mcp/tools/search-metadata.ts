@@ -1,6 +1,7 @@
 import { vectorStore } from '../../storage/vector-store.js';
 import { CatalogStore } from '../../storage/catalog-store.js';
 import { LineageStore } from '../../storage/lineage-store.js';
+import { mapStoredColumns, redactColumns } from '../../rbac/redact.js';
 
 export const vectorSearchTool = {
   name: 'search_business_glossary',
@@ -26,8 +27,16 @@ export const vectorSearchTool = {
   execute: async (args) => {
     const role = args.userRole || 'ANALYST';
 
+    // __embedText is an internal-only override (never declared in inputSchema,
+    // so an LLM tool-caller has no way to set it) used by the agent runtime's
+    // HyDE query expansion: it embeds a richer hypothetical document instead
+    // of the terse raw query, while the returned `query` stays user-facing.
+    const searchText = typeof args.__embedText === 'string' && args.__embedText.trim()
+      ? args.__embedText
+      : args.query;
+
     // 1. Run vector similarity search in Qdrant (pointer: tableName + tableId + description)
-    const matches = await vectorStore.searchSemantic(args.query, args.topK || 3);
+    const matches = await vectorStore.searchSemantic(searchText, args.topK || 3);
 
     if (!matches || matches.length === 0) {
       return {
@@ -46,25 +55,7 @@ export const vectorSearchTool = {
         LineageStore.getDownstream(hit.tableName),
       ]);
 
-      let columns = rawColumns.map(col => ({
-        name: col.column_name,
-        description: col.pii_reason || '',
-        is_pii: col.is_pii,
-      }));
-
-      // Enforce RBAC PII Redaction for non-admin requests
-      if (role !== 'ADMIN') {
-        columns = columns.map(col => {
-          if (col.is_pii) {
-            return {
-              ...col,
-              name: `[REDACTED_PII_${col.name.toUpperCase()}]`,
-              description: 'ACCESS DENIED: PII Masked due to ANALYST role policies.'
-            };
-          }
-          return col;
-        });
-      }
+      const columns = redactColumns(mapStoredColumns(rawColumns), role);
 
       return {
         tableName: hit.tableName,

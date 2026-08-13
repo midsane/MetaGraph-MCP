@@ -44,7 +44,7 @@ export function AssetNode({ data, selected }) {
   return (
     <div
       style={{ width: NODE_WIDTH }}
-      className={`overflow-hidden rounded-2xl border-2 bg-[var(--surface)] shadow-[0_6px_20px_rgba(15,23,42,0.10)] transition-colors ${borderClass}`}
+      className={`overflow-hidden rounded-2xl border-2 bg-[var(--surface)] shadow-[0_6px_20px_rgba(0,0,0,0.45)] transition-colors ${borderClass}`}
     >
       <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-2 !border-[var(--surface)] !bg-[var(--text-faint)]" />
       <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-[var(--surface)] !bg-[var(--text-faint)]" />

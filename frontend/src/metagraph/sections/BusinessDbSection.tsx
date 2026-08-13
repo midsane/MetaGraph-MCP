@@ -51,7 +51,7 @@ export function BusinessDbSection({
             value={sqlInput}
             onChange={event => onSqlChange(event.target.value)}
             spellCheck={false}
-            className="mg-mono mg-scroll h-[260px] w-full resize-none bg-transparent p-4 text-sm leading-6 text-[#92400E] outline-none"
+            className="mg-mono mg-scroll h-[260px] w-full resize-none bg-transparent p-4 text-sm leading-6 text-[#E8B368] outline-none"
             aria-label="SQL to apply to business-db"
           />
         </div>
@@ -68,7 +68,7 @@ export function BusinessDbSection({
               <button
                 onClick={onExec}
                 disabled={isProcessing}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--amber)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--amber)] px-4 py-2.5 text-sm font-semibold text-[#171100] transition hover:brightness-110 disabled:opacity-60"
               >
                 <Play size={15} fill="currentColor" />{isProcessing ? 'Applying…' : 'Apply SQL'}
               </button>

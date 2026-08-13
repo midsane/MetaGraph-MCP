@@ -67,7 +67,7 @@ export function LineageGraph({ nodes, edges, onSelect, selectedId }) {
           defaultEdgeOptions={{ markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--text-faint)' }, style: { stroke: 'var(--border-strong)', strokeWidth: 1.5 } }}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(15,23,42,0.12)" />
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(255,255,255,0.14)" />
           <Controls showInteractive={false} className="!rounded-xl !border !border-[var(--border)] !bg-[var(--surface)] !shadow-lg [&_button]:!border-[var(--border)] [&_button]:!bg-[var(--surface)] [&_button]:!fill-[var(--text-dim)] [&_button:hover]:!bg-[var(--hover)]" />
         </ReactFlow>
       </ReactFlowProvider>

@@ -4,28 +4,28 @@ export function GlobalStyle() {
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     :root{
-      --bg: #F5F6F8;
-      --surface: #FFFFFF;
-      --surface-2: #F1F2F5;
-      --border: rgba(15,23,42,0.09);
-      --border-strong: rgba(15,23,42,0.16);
-      --hover: rgba(15,23,42,0.04);
-      --hover-strong: rgba(15,23,42,0.07);
-      --text: #0F172A;
-      --text-dim: #5B6472;
-      --text-faint: #939BA8;
+      --bg: #0B0D12;
+      --surface: #12151C;
+      --surface-2: #171B24;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.16);
+      --hover: rgba(255,255,255,0.04);
+      --hover-strong: rgba(255,255,255,0.08);
+      --text: #F3F2EE;
+      --text-dim: #9195A2;
+      --text-faint: #5C606B;
 
-      --blue: #2563EB;
-      --blue-soft: rgba(37,99,235,0.10);
+      --blue: #5B9CFF;
+      --blue-soft: rgba(91,156,255,0.14);
 
-      --amber: #B45309;
-      --amber-soft: #FEF3C7;
-      --teal: #0F766E;
-      --teal-soft: #CCFBF1;
-      --violet: #6D28D9;
-      --violet-soft: #EDE9FE;
-      --rose: #BE123C;
-      --rose-soft: #FFE4E6;
+      --amber: #F0A63A;
+      --amber-soft: rgba(240,166,58,0.12);
+      --teal: #34C3AE;
+      --teal-soft: rgba(52,195,174,0.12);
+      --violet: #8D7CF6;
+      --violet-soft: rgba(141,124,246,0.12);
+      --rose: #F2596B;
+      --rose-soft: rgba(242,89,107,0.12);
     }
 
     .mg-root{
@@ -43,14 +43,14 @@ export function GlobalStyle() {
     }
 
     @keyframes mg-pulse{
-      0%   { box-shadow: 0 0 0 0 rgba(15,118,110,0.35); }
-      70%  { box-shadow: 0 0 0 6px rgba(15,118,110,0); }
-      100% { box-shadow: 0 0 0 0 rgba(15,118,110,0); }
+      0%   { box-shadow: 0 0 0 0 rgba(52,195,174,0.55); }
+      70%  { box-shadow: 0 0 0 6px rgba(52,195,174,0); }
+      100% { box-shadow: 0 0 0 0 rgba(52,195,174,0); }
     }
     .mg-live-dot{ animation: mg-pulse 2.2s ease-out infinite; }
 
     .mg-graph-texture{
-      background-image: radial-gradient(rgba(15,23,42,0.08) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px);
       background-size: 22px 22px;
     }
 

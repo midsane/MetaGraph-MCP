@@ -1,4 +1,5 @@
 import { CatalogStore } from '../../storage/catalog-store.js';
+import { mapStoredColumns, redactColumns } from '../../rbac/redact.js';
 
 export const getGovernedSchemaTool = {
   name: 'get_governed_schema',
@@ -24,22 +25,7 @@ export const getGovernedSchemaTool = {
     }
 
     const columns = await CatalogStore.getTableColumns(table.id);
-    const isAdmin = args.userRole === 'ADMIN';
-
-    const column_metadata = columns.map(col => {
-      if (col.is_pii && !isAdmin) {
-        return {
-          name: `[REDACTED_PII_${col.column_name.toUpperCase()}]`,
-          description: 'ACCESS DENIED: PII Masked due to ANALYST role policies.',
-          is_pii: true,
-        };
-      }
-      return {
-        name: col.column_name,
-        description: col.pii_reason || '',
-        is_pii: col.is_pii,
-      };
-    });
+    const column_metadata = redactColumns(mapStoredColumns(columns), args.userRole);
 
     const responsePayload = {
       tableName: table.table_name,

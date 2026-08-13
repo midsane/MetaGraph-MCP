@@ -13,6 +13,7 @@
     "server:watch": "tsx watch src/server/app.ts",
     "cli": "tsx src/cli/index.ts",
     "cli:watch": "tsx watch src/cli/index.ts",
+    "ask": "tsx src/cli/index.ts ask",
     "sync": "tsx src/sync/index.ts once",
     "sync:watch": "tsx src/sync/index.ts watch"
   },

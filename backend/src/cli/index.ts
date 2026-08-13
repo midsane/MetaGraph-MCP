@@ -3,6 +3,7 @@ import fs from 'fs';
 import { SyncEngine } from '../core/sync-engine.js';
 import { businessConnector } from '../connectors/postgres-connector.js';
 import { stripSqlComments } from '../core/sql-utils.js';
+import { runAgent } from '../agent/runtime.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -32,22 +33,54 @@ async function runExec(filePath: string) {
   console.log(`✅ ${statementsApplied} statement(s) applied and logged. If the event listener (npm run sync:watch) is running, catalog-db/Neo4j/Qdrant will update automatically.`);
 }
 
+async function runAsk(rest: string[]) {
+  const roleFlagIndex = rest.findIndex(a => a.startsWith('--role='));
+  const role = roleFlagIndex >= 0 ? rest[roleFlagIndex].split('=')[1] : 'ANALYST';
+  const queryParts = rest.filter((_, i) => i !== roleFlagIndex);
+  const query = queryParts.join(' ').trim();
+
+  if (!query) {
+    console.error('Usage: npm run cli ask "<question>" [--role=ADMIN|ANALYST]');
+    process.exit(1);
+  }
+
+  console.log(`\n⚡ [Agent Runtime] query="${query}" role=${role}\n`);
+  const result = await runAgent(query, role, { useHyde: true });
+
+  if (result.skillsLoaded.length) {
+    console.log(`🧩 Skills loaded: ${result.skillsLoaded.join(', ')}`);
+  }
+
+  console.log(`🔧 Tool calls (${result.toolCalls.length}):`);
+  for (const call of result.toolCalls) {
+    const status = call.error ? `error: ${call.error}` : 'ok';
+    console.log(`   - ${call.name}(${JSON.stringify(call.args)}) -> ${status}`);
+  }
+
+  console.log(`\n📎 Matched tables: ${result.matchedTables.join(', ') || 'none'}`);
+  console.log(`\n💬 Answer:\n${result.answer}\n`);
+}
+
 async function main() {
   if (command === 'sync') {
     await runSync();
   } else if (command === 'exec' && args[1]) {
     await runExec(args[1]);
+  } else if (command === 'ask') {
+    await runAsk(args.slice(1));
   } else {
     console.log(`
 MetaGraph Ingestion CLI
 ------------------------
 Usage:
-  npm run cli sync                       Run one-shot syncUp() against business-db
-  npm run cli exec <path-to-sql-file>    Apply a SQL file to business-db (triggers event-driven sync)
+  npm run cli sync                                Run one-shot syncUp() against business-db
+  npm run cli exec <path-to-sql-file>              Apply a SQL file to business-db (triggers event-driven sync)
+  npm run cli ask "<question>" [--role=ADMIN|ANALYST]   Ask the in-house AI agent runtime a question
 
 Examples:
   npm run cli sync
   npm run cli exec ./migrations/001_add_column.sql
+  npm run cli ask "Which table stores customer emails?" --role=ANALYST
     `);
     process.exit(command ? 1 : 0);
   }

@@ -1,18 +1,16 @@
 import { Router } from 'express';
-import { GoogleGenAI } from '@google/genai';
-import { vectorStore } from '../../storage/vector-store.js';
-import { CatalogStore } from '../../storage/catalog-store.js';
-import { LineageStore } from '../../storage/lineage-store.js';
-import { config } from '../../config/env.js';
+import { runAgent } from '../../agent/runtime.js';
 
 const router = Router();
-const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
 /**
  * @openapi
  * /api/ask:
  *   post:
- *     summary: Single-turn GraphRAG AI endpoint for natural language business queries
+ *     summary: In-house AI agent runtime - accepts a natural language query and role, gives the
+ *       model access to every catalog MCP tool (lineage, governed schema, semantic search,
+ *       downstream impact, table discovery), and loops tool calls until it has a grounded answer.
+ *       RBAC is enforced server-side on every tool call regardless of what the model requests.
  *     requestBody:
  *       required: true
  *       content:
@@ -33,119 +31,21 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Query string is required' });
         }
 
-        console.log(`\n⚡ [RAG Engine] Processing query: "${query}" (Active Role: ${userRole})`);
+        console.log(`\n⚡ [Agent Runtime] Processing query: "${query}" (Active Role: ${userRole})`);
 
-        // 1. Perform high-precision vector similarity search in Qdrant
-        const matches = await vectorStore.searchSemantic(query, 3);
-        console.log("matches:", matches)
-
-        if (!matches || matches.length === 0) {
-            return res.json({
-                query,
-                answer: "No matching tables or business metadata found in the catalog for your query.",
-                matchedTables: []
-            });
-        }
-
-        // 2. Hydrate columns (Postgres) + lineage (Neo4j) for each vector hit
-        const hydratedMatches = await Promise.all(matches.map(async match => {
-            const [rawColumns, upstream, downstream] = await Promise.all([
-                match.tableId ? CatalogStore.getTableColumns(match.tableId) : Promise.resolve([]),
-                LineageStore.getUpstream(match.tableName),
-                LineageStore.getDownstream(match.tableName),
-            ]);
-
-            return {
-                tableName: match.tableName,
-                business_description: match.business_description,
-                columns: rawColumns.map(col => ({
-                    name: col.column_name,
-                    description: col.pii_reason || '',
-                    is_pii: col.is_pii,
-                })),
-                upstream_dependencies: upstream,
-                downstream_dependents: downstream,
-            };
-        }));
-
-        // 3. Build context blocks & enforce programmatic RBAC PII redaction (Zero LLM Overhead)
-        const contextBlocks = hydratedMatches.map(match => {
-            let columns = match.columns || [];
-
-            // Enforce PII Masking Policy for non-ADMIN users
-            if (userRole !== 'ADMIN') {
-                columns = columns.map(col => {
-                    if (col.is_pii) {
-                        return {
-                            ...col,
-                            name: `[REDACTED_PII_${col.name.toUpperCase()}]`,
-                            description: `ACCESS DENIED: Column masked due to ${userRole} role policies.`
-                        };
-                    }
-                    return col;
-                });
-            }
-
-            const columnListFormatted = columns
-                .map(c => `  - ${c.name}: ${c.description} ${c.is_pii ? '(PII)' : ''}`)
-                .join('\n');
-
-            const upstream = match.upstream_dependencies?.length
-                ? match.upstream_dependencies.join(', ')
-                : 'None';
-
-            const downstream = match.downstream_dependents?.length
-                ? match.downstream_dependents.join(', ')
-                : 'None';
-
-            return `
----
-TABLE NAME: ${match.tableName}
-BUSINESS DESCRIPTION: ${match.business_description}
-UPSTREAM LINEAGE (Parents): ${upstream}
-DOWNSTREAM LINEAGE (Impacted Tables): ${downstream}
-COLUMNS:
-${columnListFormatted || '  - No explicit columns documented.'}
----`;
-        }).join('\n');
-
-        // 3. Define System Instruction for single-turn synthesis
-        const systemInstruction = `
-        You are MetaGraph, an enterprise Data Catalog & Governance AI Assistant.
-        Your job is to answer business questions about data schemas, PII policies, and table lineage.
-
-        STRICT ANSWERING RULES:
-        1. Base your answer ONLY on the provided DATABASE METADATA CATALOG CONTEXT below.
-        2. Clearly state which table names and column names contain the relevant data.
-        3. If any columns show '[REDACTED_PII...]', explicitly remind the user that access is masked under their current '${userRole}' role policies.
-        4. If the user asks about data lineage or impact analysis, explain the upstream source dependencies or downstream impacted tables.
-        5. Never fabricate table names, column names, or relationships that are not present in the context.
-        `;
-
-        const prompt = `
-        DATABASE METADATA CATALOG CONTEXT:
-        ${contextBlocks}
-
-        USER QUESTION: "${query}"
-        `;
-
-        console.log('invoking llm')
-        // 4. Execute single-turn LLM generation
-        const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
-            contents: prompt,
-            config: { systemInstruction }
-        });
+        const result = await runAgent(query, userRole, { useHyde: true });
 
         return res.json({
-            query,
-            answer: response.text || "Unable to generate an answer from the retrieved metadata context.",
-            matchedTables: matches.map(m => m.tableName)
+            query: result.query,
+            answer: result.answer,
+            matchedTables: result.matchedTables,
+            toolCalls: result.toolCalls,
+            skillsLoaded: result.skillsLoaded,
+            iterations: result.iterations,
         });
-
     } catch (err) {
         console.error('[Ask Endpoint Error]', err);
-        const errorMessage = err instanceof Error ? err.message : 'Internal server error processing RAG search.';
+        const errorMessage = err instanceof Error ? err.message : 'Internal server error processing agent query.';
         res.status(500).json({ error: errorMessage });
     }
 });

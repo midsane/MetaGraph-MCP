@@ -75,7 +75,7 @@ export function AskSection({ isSearching, onQueryChange, onSearch, ragQuery, rag
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] py-3 pl-10 pr-4 text-sm text-[var(--text)] outline-none focus:border-[var(--violet)]/50"
               />
             </div>
-            <button disabled={isSearching} className="rounded-xl bg-[var(--violet)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60">
+            <button disabled={isSearching} className="rounded-xl bg-[var(--violet)] px-5 py-3 text-sm font-semibold text-[#100B24] transition hover:brightness-110 disabled:opacity-60">
               {isSearching ? 'Searching…' : 'Search'}
             </button>
           </form>

@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Database, ShieldAlert, X } from 'lucide-react';
+import { Database, ShieldAlert, X } from 'lucide-react';
 import { Pill } from './Pill.tsx';
 
 export function AssetDetailPanel({ tableName, table, upstream, downstream, onClose }) {
