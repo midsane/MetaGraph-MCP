@@ -26,6 +26,35 @@ export class ASTParser {
   }
 
   /**
+   * tableList() only tracks data-flow tables (FROM/JOIN/INSERT-SELECT/CTAS) -
+   * it silently drops FOREIGN KEY REFERENCES on CREATE TABLE, even though
+   * those referenced tables are real upstream dependencies for lineage
+   * purposes. Walk the full AST's create_definitions to recover them, for
+   * both the inline (`col TYPE REFERENCES t(c)`) and standalone
+   * (`FOREIGN KEY (col) REFERENCES t(c)`) constraint forms.
+   */
+  private extractForeignKeyReferences(sql: string): string[] {
+    const refs = new Set<string>();
+    try {
+      const ast = this.parser.astify(sql, { database: 'Postgresql' });
+      const statements = Array.isArray(ast) ? ast : [ast];
+      for (const stmt of statements) {
+        if (stmt?.type !== 'create' || stmt?.keyword !== 'table') continue;
+        for (const def of stmt.create_definitions || []) {
+          // node-sql-parser's types omit reference_definition from this
+          // union member even though it's present at runtime for both FK
+          // constraint forms.
+          const refTable = (def as any)?.reference_definition?.table?.[0]?.table;
+          if (refTable) refs.add(this.extractTableName(refTable));
+        }
+      }
+    } catch {
+      // astify failures are already surfaced by tableList() below; ignore here.
+    }
+    return Array.from(refs);
+  }
+
+  /**
    * Analyzes a raw SQL string and extracts the target table and all upstream sources.
    */
   extractDependencies(sql: string): LineageDependency {
@@ -35,7 +64,7 @@ export class ASTParser {
 
       // tableList returns an array of strings like: "select::null::users"
       const tableList = this.parser.tableList(clean, { database: 'Postgresql' });
-      
+
       let target = '';
       const sources = new Set<string>();
 
@@ -46,7 +75,7 @@ export class ASTParser {
         const rawTableName = parts[2];
 
         if (!rawTableName || rawTableName === 'null') continue;
-        
+
         const tableName = this.extractTableName(rawTableName);
 
         if (['insert', 'update', 'create', 'replace'].includes(action)) {
@@ -56,8 +85,11 @@ export class ASTParser {
         }
       }
 
-      // A table cannot depend on itself in our DAG
       if (target) {
+        for (const ref of this.extractForeignKeyReferences(clean)) {
+          sources.add(ref);
+        }
+        // A table cannot depend on itself in our DAG
         sources.delete(target);
       }
 

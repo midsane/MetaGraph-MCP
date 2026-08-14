@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "metagraph": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "cd backend && npx tsx src/mcp/server.ts"]
+    }
+  }
+}
