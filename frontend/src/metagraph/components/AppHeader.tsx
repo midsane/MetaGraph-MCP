@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { ACCENTS, NAV } from '../constants.ts';
 
+/** Top app bar: brand mark, catalog-purge button, and the tab navigation strip. */
 export function AppHeader({ activeTab, isPurging, onPurge, onSelectTab }) {
   return (
     <header className="relative overflow-hidden border-b border-[var(--border)] bg-[var(--surface)]/85 backdrop-blur">

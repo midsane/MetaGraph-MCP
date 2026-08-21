@@ -3,6 +3,7 @@ import { StatCard } from '../components/StatCard.tsx';
 import { LineageGraph } from '../components/LineageGraph.tsx';
 import { AssetDetailPanel } from '../components/AssetDetailPanel.tsx';
 
+/** "Context Layer" tab: catalog stats, the interactive lineage graph, and the detail panel for the selected table. */
 export function ContextLayerSection({
   catalogDbTables,
   downstream,

@@ -1,6 +1,7 @@
 import { Database, ShieldAlert, X } from 'lucide-react';
 import { Pill } from './Pill.tsx';
 
+/** Side panel showing the selected lineage-graph node's business description, PII-tagged columns, and upstream/downstream neighbors. */
 export function AssetDetailPanel({ tableName, table, upstream, downstream, onClose }) {
   if (!tableName) {
     return (

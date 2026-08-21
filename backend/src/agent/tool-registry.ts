@@ -28,6 +28,7 @@ export const AGENT_TOOLS = [
 // tool boundary, regardless of what the user's message asks it to do.
 const CALLER_CONTROLLED_PARAMS = new Set(['userRole']);
 
+/** Converts an MCP tool's inputSchema into a plain JSON Schema, stripping caller-controlled params like userRole so the model never sees them. */
 function toPlainParameters(inputSchema: any) {
   const properties: Record<string, any> = {};
   for (const [key, val] of Object.entries<any>(inputSchema.properties || {})) {

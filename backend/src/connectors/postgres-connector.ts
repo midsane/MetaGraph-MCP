@@ -21,6 +21,7 @@ export class PostgresConnector {
   private pool: Pool;
   private schemaName: string;
 
+  /** Opens a connection pool to the given Postgres database/schema (defaults to business-db). */
   constructor(connectionString: string = businessDbConnectionString(), schemaName: string = config.businessDb.schema) {
     // Connects to the live company database (business-db container). Reads
     // back its schema/query_logs for ingestion; the only write path is

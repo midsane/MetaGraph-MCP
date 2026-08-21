@@ -6,6 +6,7 @@ import { BusinessDbSection } from './metagraph/sections/BusinessDbSection.tsx';
 import { ContextLayerSection } from './metagraph/sections/ContextLayerSection.tsx';
 import { useMetagraphWorkspace } from './metagraph/useMetagraphWorkspace.ts';
 
+/** Root app shell: renders the header, error banner, and whichever tab section is active. */
 export default function App() {
   const workspace = useMetagraphWorkspace();
 

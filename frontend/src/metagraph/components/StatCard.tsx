@@ -1,5 +1,6 @@
 import { ACCENTS } from '../constants.ts';
 
+/** Labeled stat tile with an accent color and icon; renders a larger "hero" variant when `hero` is true. */
 export function StatCard({ label, value, icon: Icon, accent = 'amber', hero = false }) {
   const a = ACCENTS[accent] || ACCENTS.amber;
 

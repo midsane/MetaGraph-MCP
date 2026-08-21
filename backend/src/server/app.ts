@@ -36,6 +36,7 @@ const swaggerOptions = {
   apis: ['./src/server/routes/*.{ts,js}']
 };
 
+/** Basic health check endpoint. */
 app.get("/", (req, res)=> {
   return res.status(200).json({"server healthy": true})
 })
@@ -54,6 +55,7 @@ app.use('/api/sync', syncRouter);
 app.use('/api/retrieve-business-db', retrieveBusinessDbRouter);
 app.use('/api/retrieve-catalog-db', retrieveCatalogDbRouter);
 
+/** Starts the Express REST server on the configured port. */
 async function startServer() {
   try {
     app.listen(config.port, () => {

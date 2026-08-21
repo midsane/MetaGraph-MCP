@@ -8,12 +8,14 @@ import { runAgent } from '../agent/runtime.js';
 const args = process.argv.slice(2);
 const command = args[0];
 
+/** `npm run cli sync` — runs a single syncUp() pass against business-db and prints the result. */
 async function runSync() {
   console.log('🔄 Running one-shot syncUp() against business-db...');
   const result = await SyncEngine.syncUp();
   console.log('✅ Sync complete:', JSON.stringify(result, null, 2));
 }
 
+/** `npm run cli exec <file>` — strips comments from a SQL file and applies it to business-db. */
 async function runExec(filePath: string) {
   if (!fs.existsSync(filePath)) {
     console.error(`File not found: ${filePath}`);
@@ -33,6 +35,7 @@ async function runExec(filePath: string) {
   console.log(`✅ ${statementsApplied} statement(s) applied and logged. If the event listener (npm run sync:watch) is running, catalog-db/Neo4j/Qdrant will update automatically.`);
 }
 
+/** `npm run cli ask "<question>" [--role=...]` — runs the in-house agent runtime and prints its trace and answer. */
 async function runAsk(rest: string[]) {
   const roleFlagIndex = rest.findIndex(a => a.startsWith('--role='));
   const role = roleFlagIndex >= 0 ? rest[roleFlagIndex].split('=')[1] : 'ANALYST';
@@ -61,6 +64,7 @@ async function runAsk(rest: string[]) {
   console.log(`\n💬 Answer:\n${result.answer}\n`);
 }
 
+/** Parses the CLI subcommand from argv and dispatches to the matching handler, or prints usage. */
 async function main() {
   if (command === 'sync') {
     await runSync();

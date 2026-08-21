@@ -16,6 +16,7 @@ export const checkDownstreamImpactTool = {
     },
     required: ['tableName']
   },
+  /** Looks up every table downstream of the given table and flags whether it's safe to modify. */
   execute: async (args: any) => {
     const downstream = await LineageStore.getDownstream(args.tableName);
 

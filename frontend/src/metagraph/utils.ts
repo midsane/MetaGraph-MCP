@@ -1,5 +1,6 @@
 import { PII_KEYWORDS } from './constants.ts';
 
+/** Scans SQL column definitions for names matching known PII keywords, for the pre-exec warning list. */
 export function getRiskHits(sqlInput) {
     return sqlInput.split('\n').flatMap(line => {
         const match = line.match(/^\s*(\w+)\s+(VARCHAR|INT|UUID|TEXT|DATE|CHAR|DECIMAL)/i);
@@ -7,6 +8,7 @@ export function getRiskHits(sqlInput) {
     });
 }
 
+/** Counts non-empty, semicolon-separated SQL statements in the editor input. */
 export function getStatementCount(sqlInput) {
     return sqlInput.split(';').filter(statement => statement.trim()).length;
 }
@@ -41,6 +43,7 @@ export function buildGraphData(lineageData: any, catalogDbTables: any[]) {
     return { nodes, edges };
 }
 
+/** Builds the "Ask a question" starter-prompt chips from the current catalog. */
 export function buildSuggestions(catalog) {
     return [
         'Show every column flagged as PII',

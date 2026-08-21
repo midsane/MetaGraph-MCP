@@ -1,3 +1,4 @@
+/** Injects the app's global CSS: theme color variables, fonts, and shared utility classes. */
 export function GlobalStyle() {
   return (
     <style>{`

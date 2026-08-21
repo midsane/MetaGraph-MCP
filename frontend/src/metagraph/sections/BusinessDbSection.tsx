@@ -9,6 +9,7 @@ import {
 import { Pill } from '../components/Pill.tsx';
 import { StatCard } from '../components/StatCard.tsx';
 
+/** Small card showing a business-db table's name and column count. */
 function BusinessTableChip({ table }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
@@ -20,6 +21,7 @@ function BusinessTableChip({ table }) {
   );
 }
 
+/** "Update Business DB" tab: SQL editor with exec/sync-now controls, a PII pre-scan, and the live business-db table list. */
 export function BusinessDbSection({
   actionLog,
   businessDbTables,

@@ -3,6 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 import { CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Database, Hash, ShieldAlert, Type } from 'lucide-react';
 import { NODE_WIDTH, VISIBLE_COLUMNS } from './asset-node-layout.ts';
 
+/** Picks a representative icon for a column based on its SQL data type. */
 function iconForType(dataType) {
   const t = (dataType || '').toLowerCase();
   if (t.includes('time') || t.includes('date')) return CalendarDays;
@@ -10,6 +11,7 @@ function iconForType(dataType) {
   return Type;
 }
 
+/** Custom React Flow node: a table card with an expandable, PII-flagged column list, or a "pending sync" placeholder for undocumented tables. */
 export function AssetNode({ data, selected }) {
   const [expanded, setExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);

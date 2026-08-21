@@ -13,6 +13,7 @@ export interface LineageDependency {
 export class ASTParser {
   private parser: InstanceType<typeof Parser>;
 
+  /** Creates the underlying node-sql-parser instance used by this parser. */
   constructor() {
     this.parser = new Parser();
   }

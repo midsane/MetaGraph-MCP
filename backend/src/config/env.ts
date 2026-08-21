@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 // Suppress stdout logs so MCP JSON-RPC protocol stream is never corrupted
 dotenv.config({ quiet: true });
 
+/** Reads an env var as an integer, falling back to a default if unset or not a valid number. */
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
   const parsed = raw ? parseInt(raw, 10) : NaN;
@@ -60,6 +61,7 @@ export const config = {
   syncDebounceMs: envInt('SYNC_DEBOUNCE_MS', 1500),
 };
 
+/** Builds a Postgres connection string for the live business database from config.businessDb. */
 export function businessDbConnectionString(): string {
   const { user, password, host, port, database } = config.businessDb;
   return `postgres://${user}:${password}@${host}:${port}/${database}`;

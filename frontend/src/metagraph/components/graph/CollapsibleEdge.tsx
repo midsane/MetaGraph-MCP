@@ -1,5 +1,6 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react';
 
+/** Custom React Flow edge: a bezier curve with a small arrow marker at its midpoint. */
 export function CollapsibleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd = undefined, style = undefined }) {
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 

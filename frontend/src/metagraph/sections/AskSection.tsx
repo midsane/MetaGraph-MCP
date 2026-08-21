@@ -30,6 +30,7 @@ function splitIntoBlocks(answer) {
   return blocks;
 }
 
+/** Renders an agent answer as lightweight markdown: headings, bullets, code fences, and plain paragraphs. */
 function renderAnswer(answer) {
   if (!answer) return null;
 
@@ -84,6 +85,7 @@ function renderAnswer(answer) {
   });
 }
 
+/** Renders one chat message: a system notice, a right-aligned user bubble, or an agent reply with matched tables/skills. */
 function ChatBubble({ message }) {
   if (message.role === 'system') {
     return (
@@ -142,6 +144,7 @@ function ChatBubble({ message }) {
   );
 }
 
+/** "Ask a question" tab: role toggle, scrolling chat transcript with suggested prompts, and the message input form. */
 export function AskSection({ chatMessages, isSearching, onNewChat, onQueryChange, onSendMessage, ragQuery, setUserRole, suggestions, userRole }) {
   const scrollRef = useRef(null);
 

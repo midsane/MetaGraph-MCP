@@ -18,6 +18,7 @@ export interface SearchResult {
 export class ProductionVectorStore {
   private initialized: boolean;
 
+  /** Creates the store in an uninitialized state; init() lazily creates the Qdrant collection on first use. */
   constructor() {
     this.initialized = false;
   }

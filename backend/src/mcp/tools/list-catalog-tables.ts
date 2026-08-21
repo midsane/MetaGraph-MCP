@@ -12,6 +12,7 @@ export const listCatalogTablesTool = {
     properties: {},
     required: []
   },
+  /** Lists every active catalog table with its business description, capped at MAX_TABLES_RETURNED. */
   execute: async () => {
     const tables = await CatalogStore.getAllTables();
     const truncated = tables.length > MAX_TABLES_RETURNED;

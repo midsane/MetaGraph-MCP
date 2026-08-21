@@ -41,6 +41,7 @@ function toOpenAiMessages(system: string, messages: LlmMessage[]): any[] {
   return out;
 }
 
+/** Maps OpenRouter/OpenAI-style finish_reason strings to the provider-agnostic LlmFinishReason. */
 function mapFinishReason(reason: string | undefined): LlmChatResult['finishReason'] {
   switch (reason) {
     case 'stop': return 'stop';
@@ -51,6 +52,7 @@ function mapFinishReason(reason: string | undefined): LlmChatResult['finishReaso
   }
 }
 
+/** Parses a JSON string, returning an empty object instead of throwing on invalid input. */
 function safeJsonParse(raw: string | undefined): Record<string, unknown> {
   if (!raw) return {};
   try {
@@ -64,6 +66,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
   readonly name = 'openrouter';
   readonly embeddingDimensions = EMBEDDING_DIMENSIONS;
 
+  /** POSTs a JSON body to an OpenRouter API path, throwing with the response body on a non-OK status. */
   private async request(path: string, body: Record<string, unknown>): Promise<any> {
     const response = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',
@@ -82,6 +85,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
     return response.json();
   }
 
+  /** Sends a chat turn (with optional tool declarations) to OpenRouter and normalizes the response into LlmChatResult. */
   async chat(options: LlmChatOptions): Promise<LlmChatResult> {
     const body: Record<string, unknown> = {
       model: config.openrouter.model,
@@ -116,6 +120,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
     };
   }
 
+  /** Asks the model to generate a single JSON document matching an optional schema, spelled out as a prompt hint; returns null on failure. */
   async generateJson(options: LlmJsonOptions): Promise<string | null> {
     try {
       // Strict json_schema response_format support varies across the many
@@ -143,6 +148,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
     }
   }
 
+  /** Embeds a text string via OpenRouter into a fixed-size vector; returns null on failure or dimension mismatch. */
   async embed(text: string): Promise<number[] | null> {
     try {
       const data = await this.request('/embeddings', {

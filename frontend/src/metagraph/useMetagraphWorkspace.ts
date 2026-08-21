@@ -11,6 +11,7 @@ import {
 const CONTEXT_LAYER_POLL_TABS = new Set(["business-db", "context-layer"]);
 const POLL_MS = 3000;
 
+/** Central state/data hook for the whole app: holds all workspace state and API-backed handlers consumed by the tab sections. */
 export function useMetagraphWorkspace() {
   const [activeTab, setActiveTab] = useState("context-layer");
   const [sqlInput, setSqlInput] = useState(INITIAL_SQL);
@@ -126,6 +127,7 @@ export function useMetagraphWorkspace() {
     [catalogDbTables],
   );
 
+  /** Applies the editor's SQL to business-db via POST /api/exec. */
   const handleExec = useCallback(async () => {
     setIsProcessing(true);
     setError("");
@@ -149,6 +151,7 @@ export function useMetagraphWorkspace() {
     }
   }, [sqlInput]);
 
+  /** Manually triggers syncUp() via POST /api/sync, then reloads the context-layer panels. */
   const handleSyncNow = useCallback(async () => {
     setIsSyncing(true);
     setError("");
@@ -168,6 +171,7 @@ export function useMetagraphWorkspace() {
     }
   }, [loadContextLayer]);
 
+  /** Confirms with the user, then wipes catalog/lineage/vector data via POST /api/purge and resets local state. */
   const handlePurge = useCallback(async () => {
     if (
       !window.confirm("Purge all catalog metadata and lineage from Qdrant?")
@@ -192,6 +196,7 @@ export function useMetagraphWorkspace() {
     }
   }, [loadWorkspace, loadContextLayer]);
 
+  /** Sends a chat query to POST /api/ask, appending a pending bubble that's replaced with the agent's reply (or an error) when it resolves. */
   const handleSendMessage = useCallback(
     async (event, query = ragQuery) => {
       event?.preventDefault();
@@ -254,6 +259,7 @@ export function useMetagraphWorkspace() {
     [ragQuery, sessionId, userRole],
   );
 
+  /** Clears the chat transcript and starts a fresh agent session. */
   const handleNewChat = useCallback(() => {
     setChatMessages([]);
     setSessionId(null);

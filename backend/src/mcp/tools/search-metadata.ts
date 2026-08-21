@@ -24,6 +24,7 @@ export const vectorSearchTool = {
     },
     required: ['query']
   },
+  /** Runs a semantic search over the catalog, hydrates each hit with columns/lineage, and redacts PII per role. */
   execute: async (args) => {
     const role = args.userRole || 'ANALYST';
 

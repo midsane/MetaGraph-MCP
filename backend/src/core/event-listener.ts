@@ -22,11 +22,13 @@ export class EventListener {
   private syncQueuedAgain = false;
   private stopped = false;
 
+  /** Begins listening for sync notifications. */
   async start(): Promise<void> {
     this.stopped = false;
     await this.connect();
   }
 
+  /** Stops listening and closes the dedicated Postgres connection. */
   async stop(): Promise<void> {
     this.stopped = true;
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
@@ -34,6 +36,7 @@ export class EventListener {
     this.client = null;
   }
 
+  /** Opens the dedicated LISTEN connection and wires up notification/error/end handlers. */
   private async connect(): Promise<void> {
     const client = new Client({ connectionString: businessDbConnectionString() });
 
@@ -63,6 +66,7 @@ export class EventListener {
     this.scheduleSync();
   }
 
+  /** Drops the current connection and retries after a fixed delay. */
   private reconnect(): void {
     if (this.stopped) return;
     this.client?.removeAllListeners();
@@ -72,11 +76,13 @@ export class EventListener {
     }, RECONNECT_DELAY_MS);
   }
 
+  /** Resets the debounce timer so a burst of notifications collapses into one sync. */
   private scheduleSync(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => this.runSync(), config.syncDebounceMs);
   }
 
+  /** Runs SyncEngine.syncUp(), queuing one more run if a notification arrives while it's in flight. */
   private async runSync(): Promise<void> {
     if (this.syncInFlight) {
       // A notification arrived mid-sync; run once more after this one finishes.

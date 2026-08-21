@@ -22,6 +22,7 @@ export const executeBusinessQueryTool = {
     },
     required: ['sql', 'confirm', 'userRole'],
   },
+  /** Strips comments and runs the given SQL against business-db, but only if the caller is ADMIN and passed confirm=true. */
   execute: async (args: any) => {
     if (!isAdmin(args.userRole)) {
       return {

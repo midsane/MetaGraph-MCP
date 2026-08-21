@@ -9,6 +9,7 @@ import { CollapsibleEdge } from './graph/CollapsibleEdge.tsx';
 const nodeTypes = { asset: AssetNode };
 const edgeTypes = { collapsible: CollapsibleEdge };
 
+/** Runs a dagre left-to-right auto-layout pass, returning each node with a computed x/y position. */
 function layoutNodes(nodes, edges) {
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({ rankdir: 'LR', nodesep: 70, ranksep: 140 });
@@ -30,6 +31,7 @@ function layoutNodes(nodes, edges) {
   });
 }
 
+/** Renders the interactive lineage DAG (React Flow) with auto-layout, PII-aware node cards, and click-to-select. */
 export function LineageGraph({ nodes, edges, onSelect, selectedId }) {
   const { flowNodes, flowEdges } = useMemo(() => {
     const positioned = layoutNodes(nodes, edges);

@@ -1,3 +1,4 @@
+/** Small rounded badge for status/tags, colored by its `tone` (neutral/good/warn/danger/brand). */
 export function Pill({ children, tone = 'neutral', ...rest }) {
   const styles = {
     neutral: 'bg-[var(--surface-2)] text-[var(--text-dim)] border border-[var(--border)]',

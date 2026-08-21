@@ -16,6 +16,7 @@ export interface SyncResult {
   lineageEdgesAdded: number;
 }
 
+/** True if a live table's columns exactly match the set already stored in catalog-db. */
 function sameColumnSet(live: TableSchema['columns'], stored: StoredTable['columns']): boolean {
   if (live.length !== stored.length) return false;
   const storedNames = new Set(stored.map(c => c.columnName));
@@ -34,6 +35,7 @@ function sameColumnSet(live: TableSchema['columns'], stored: StoredTable['column
  *  5. Advance the sync watermark last, so a crash mid-run is safe to retry.
  */
 export class SyncEngine {
+  /** Runs one full sync pass: diffs schema, documents/PII-tags changed tables, and syncs lineage from query logs. */
   static async syncUp(): Promise<SyncResult> {
     const [liveTables, storedSchema] = await Promise.all([
       businessConnector.getLiveSchema(),

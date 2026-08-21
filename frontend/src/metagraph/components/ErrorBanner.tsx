@@ -1,3 +1,4 @@
+/** Dismissible red banner showing the current error message, if any. */
 export function ErrorBanner({ error, onDismiss }) {
   if (!error) {
     return null;

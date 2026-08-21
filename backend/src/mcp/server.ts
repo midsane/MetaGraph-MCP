@@ -22,16 +22,19 @@ const server = new Server(
     { capabilities: { tools: {} } }
 );
 
+/** Responds to an MCP client's tool-listing request with this server's tool catalog. */
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
 }));
 
+/** Looks up the requested tool by name and runs it with the caller's arguments. */
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = tools.find(t => t.name === request.params.name);
     if (!tool) throw new Error(`Tool not found: ${request.params.name}`);
     return await tool.execute(request.params.arguments);
 });
 
+/** Starts the MCP server over stdio so a client (e.g. Claude Code) can connect. */
 async function main() {
     // Tools read directly from Postgres/Neo4j/Qdrant per call - no in-memory
     // cache to hydrate.

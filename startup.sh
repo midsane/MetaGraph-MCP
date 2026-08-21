@@ -9,11 +9,17 @@ BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 LOG_DIR="$ROOT_DIR/.demo-logs"
 
+# Step 1: make sure the log directory exists, and empty out last run's logs
+# so `tail -f` at the end of this script only ever shows fresh output.
 mkdir -p "$LOG_DIR"
 : > "$LOG_DIR/server.log"
 : > "$LOG_DIR/sync-watch.log"
 : > "$LOG_DIR/frontend.log"
 
+# Step 2: set up process tracking + a cleanup handler. Every background
+# process this script starts gets its process-group id (PGID) recorded in
+# PGIDS. When the script exits (normally, Ctrl+C, or an error thanks to
+# `set -e`), cleanup() runs automatically and kills each tracked group.
 PGIDS=()
 
 cleanup() {
@@ -36,12 +42,19 @@ start_bg() {
   PGIDS+=("$!")
 }
 
+# Step 3: tear down any previous demo run completely, including its
+# volumes, so every database starts empty (no leftover tables/lineage/PII
+# tags from a prior demo).
 echo "==> Wiping all volumes (business-db, catalog-db, neo4j, qdrant) for a clean slate..."
 (cd "$BACKEND_DIR" && docker compose down -v)
 
+# Step 4: bring the 5 containers (business-db, catalog-db, neo4j, qdrant,
+# adminer) back up fresh, in the background.
 echo "==> Starting containers..."
 (cd "$BACKEND_DIR" && docker compose up -d)
 
+# Step 5: block until both Postgres containers are actually accepting
+# connections, so the backend doesn't try to connect before they're ready.
 wait_for_postgres() {
   local container="$1" user="$2" db="$3" tries=0
   echo "==> Waiting for $container to accept connections..."
@@ -55,9 +68,13 @@ wait_for_postgres() {
   done
 }
 
+# Step 6: wait for both business-db and catalog-db specifically (Step 5's
+# function, called once per database).
 wait_for_postgres backend-business-db-1 business_admin business
 wait_for_postgres backend-catalog-db-1 admin metagraph
 
+# Step 7: start the 3 app processes (backend API, event-driven sync
+# listener, frontend dev server), each logging to its own file.
 # NOTE: start_bg is called directly (not inside a `(...)` subshell) so its
 # PGIDS+=(...) mutates this script's array rather than a throwaway copy.
 cd "$BACKEND_DIR"
@@ -75,8 +92,11 @@ start_bg "$LOG_DIR/frontend.log" npx vite
 
 cd "$ROOT_DIR"
 
+# Step 8: give everything a couple seconds to boot before printing the
+# summary banner below.
 sleep 2
 
+# Step 9: print the demo info banner (URLs + sample SQL to try).
 cat <<'EOF'
 
 ==================================================================
@@ -101,4 +121,7 @@ cat <<'EOF'
 
 EOF
 
+# Step 10: stream all 3 process logs to this terminal and just sit here.
+# The script "ends" only when you hit Ctrl+C (or an error happens), which
+# triggers the cleanup() trap from Step 2 to kill everything it started.
 tail -f "$LOG_DIR/server.log" "$LOG_DIR/sync-watch.log" "$LOG_DIR/frontend.log"

@@ -1,9 +1,11 @@
 export type Role = 'ADMIN' | 'ANALYST';
 
+/** Coerces any input into a valid Role, defaulting to the least-privileged ANALYST. */
 export function normalizeRole(role: unknown): Role {
   return String(role).toUpperCase() === 'ADMIN' ? 'ADMIN' : 'ANALYST';
 }
 
+/** True if the given role (after normalization) is ADMIN. */
 export function isAdmin(role: unknown): boolean {
   return normalizeRole(role) === 'ADMIN';
 }
@@ -32,6 +34,7 @@ export function redactColumns<T extends RedactableColumn>(columns: T[], role: un
   });
 }
 
+/** Converts a raw catalog-db column row into the shape redactColumns() expects. */
 export function mapStoredColumns(
   raw: Array<{ column_name: string; pii_reason: string | null; is_pii: boolean }>
 ): RedactableColumn[] {

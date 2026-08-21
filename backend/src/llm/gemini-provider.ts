@@ -12,6 +12,7 @@ import type {
   LlmToolCall,
 } from './types.js';
 
+/** Maps a plain JSON Schema type string to the Gemini SDK's Type enum. */
 function toGeminiType(t: string | undefined): Type {
   switch (t) {
     case 'string': return Type.STRING;
@@ -24,6 +25,7 @@ function toGeminiType(t: string | undefined): Type {
   }
 }
 
+/** Recursively converts a plain JSON Schema into the shape the Gemini SDK expects. */
 function toGeminiSchema(schema: LlmJsonSchema): any {
   if (!schema || typeof schema !== 'object') return schema;
   const out: any = {};
@@ -91,6 +93,7 @@ function toGeminiContents(messages: LlmMessage[]): Content[] {
   return contents;
 }
 
+/** Maps Gemini's finishReason strings to the provider-agnostic LlmFinishReason. */
 function mapFinishReason(reason: string | undefined): LlmChatResult['finishReason'] {
   switch (reason) {
     case 'STOP': return 'stop';
@@ -111,10 +114,12 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
   readonly embeddingDimensions = EMBEDDING_DIMENSIONS;
   private ai: GoogleGenAI;
 
+  /** Creates the underlying Gemini SDK client using the configured API key. */
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
   }
 
+  /** Sends a chat turn (with optional tool declarations) to Gemini and normalizes the response into LlmChatResult. */
   async chat(options: LlmChatOptions): Promise<LlmChatResult> {
     const contents = toGeminiContents(options.messages);
     const hasTools = !!options.tools?.length;
@@ -164,6 +169,7 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
     };
   }
 
+  /** Asks Gemini to generate a single JSON document matching an optional schema; returns null on failure. */
   async generateJson(options: LlmJsonOptions): Promise<string | null> {
     try {
       const response = await this.ai.models.generateContent({
@@ -183,6 +189,7 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
     }
   }
 
+  /** Embeds a text string via Gemini into a fixed-size vector; returns null on failure or dimension mismatch. */
   async embed(text: string): Promise<number[] | null> {
     try {
       const response = await this.ai.models.embedContent({

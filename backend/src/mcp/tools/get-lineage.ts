@@ -13,6 +13,7 @@ export const getLineageTool = {
     },
     required: ['tableName']
   },
+  /** Fetches both upstream sources and downstream dependents for a table from the Neo4j lineage graph. */
   execute: async (args) => {
     // 1. Fetch Upstream (Parents) and Downstream (Children / Impacted Tables) from Neo4j
     const [upstream, downstream] = await Promise.all([

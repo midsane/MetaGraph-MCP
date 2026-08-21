@@ -13,6 +13,7 @@ export const getGovernedSchemaTool = {
     },
     required: ['tableName', 'userRole']
   },
+  /** Fetches a table's catalog metadata and columns, redacting PII columns unless the caller is ADMIN. */
   execute: async (args) => {
     const table = await CatalogStore.getTableByName(args.tableName);
 

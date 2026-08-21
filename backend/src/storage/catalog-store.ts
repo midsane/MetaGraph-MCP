@@ -18,11 +18,13 @@ export class CatalogStore {
   // ---------------------------------------------------------
   // 1. Watermark State (Incremental Sync)
   // ---------------------------------------------------------
+  /** Returns the id of the last query_logs row processed by Track B lineage sync. */
   static async getSyncState(): Promise<number> {
     const res = await pg.query('SELECT last_processed_query_id FROM catalog.sync_state ORDER BY id DESC LIMIT 1');
     return res.rows[0]?.last_processed_query_id || 0;
   }
 
+  /** Advances the sync watermark to the given query_logs id. */
   static async updateSyncState(queryId: number) {
     await pg.query(`
       UPDATE catalog.sync_state 
@@ -33,6 +35,7 @@ export class CatalogStore {
   // ---------------------------------------------------------
   // 2. Table CRUD
   // ---------------------------------------------------------
+  /** Inserts a new table row (or reactivates an existing one) and returns its id. */
   static async upsertTable(tableName: string): Promise<number> {
     const res = await pg.query(`
       INSERT INTO catalog.tables (table_name, is_active) 
@@ -44,6 +47,7 @@ export class CatalogStore {
     return res.rows[0].id;
   }
 
+  /** Writes the Scribe-generated business description for a table. */
   static async updateTableSummary(tableId: number, summary: string) {
     await pg.query(`
       UPDATE catalog.tables 
@@ -55,6 +59,7 @@ export class CatalogStore {
   // ---------------------------------------------------------
   // 3. Column & PII CRUD
   // ---------------------------------------------------------
+  /** Inserts a new column row (or reactivates/updates its data type if it already exists). */
   static async upsertColumn(tableId: number, columnName: string, dataType: string) {
     await pg.query(`
       INSERT INTO catalog.columns (table_id, column_name, data_type, is_active)
@@ -64,6 +69,7 @@ export class CatalogStore {
     `, [tableId, columnName, dataType]);
   }
 
+  /** Writes the PII verdict (flag + reason) for a single column. */
   static async updateColumnPii(tableId: number, columnName: string, isPii: boolean, piiReason: string | null) {
     await pg.query(`
       UPDATE catalog.columns 
@@ -72,6 +78,7 @@ export class CatalogStore {
     `, [isPii, piiReason, tableId, columnName]);
   }
 
+  /** Returns all active columns for a table. */
   static async getTableColumns(tableId: number) {
     const res = await pg.query('SELECT * FROM catalog.columns WHERE table_id = $1 AND is_active = TRUE', [tableId]);
     return res.rows;
@@ -115,6 +122,7 @@ export class CatalogStore {
     return tables;
   }
 
+  /** Lists every active table with its business summary, for catalog browsing. */
   static async getAllTables() {
     const res = await pg.query(`
       SELECT id, table_name, business_summary, updated_at
@@ -125,6 +133,7 @@ export class CatalogStore {
     return res.rows;
   }
 
+  /** Looks up a single active table by name, or null if it doesn't exist. */
   static async getTableByName(tableName: string) {
     const res = await pg.query(`
       SELECT id, table_name, business_summary

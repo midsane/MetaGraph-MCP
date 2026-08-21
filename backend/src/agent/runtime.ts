@@ -32,6 +32,7 @@ export interface RunAgentOptions {
   history?: LlmMessage[];
 }
 
+/** Truncates long arrays before a tool result is echoed back into the model's context, so large catalog/lineage results don't bloat the conversation. */
 function chunkForModel(value: unknown): unknown {
   if (Array.isArray(value)) {
     const items = value.map(chunkForModel);
@@ -53,6 +54,7 @@ function chunkForModel(value: unknown): unknown {
   return value;
 }
 
+/** Scans every tool call's args and result for table names, to report which tables a run actually touched. */
 function collectMatchedTables(toolCalls: ToolCallTrace[]): string[] {
   const names = new Set<string>();
 
@@ -78,6 +80,7 @@ function collectMatchedTables(toolCalls: ToolCallTrace[]): string[] {
   return Array.from(names);
 }
 
+/** Builds the agent's system prompt: identity, tool-use rules, and role, plus any active skill directives. */
 function buildSystemInstruction(role: Role, skillDirectives: string[]): string {
   return `
 You are MetaGraph, an enterprise Data Catalog & Governance AI Assistant running as an autonomous

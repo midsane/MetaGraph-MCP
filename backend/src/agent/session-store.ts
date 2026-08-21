@@ -18,16 +18,19 @@ const MAX_HISTORY_TURNS = 12;
 
 const sessions = new Map<string, SessionRecord>();
 
+/** True if a session has been idle longer than SESSION_TTL_MS. */
 function isExpired(record: SessionRecord): boolean {
   return Date.now() - record.updatedAt > SESSION_TTL_MS;
 }
 
+/** Removes every expired session from the in-memory store. */
 function evictExpired() {
   for (const [id, record] of sessions) {
     if (isExpired(record)) sessions.delete(id);
   }
 }
 
+/** Drops the least-recently-updated session once the store exceeds MAX_SESSIONS. */
 function evictOldestIfOverCapacity() {
   if (sessions.size <= MAX_SESSIONS) return;
   let oldestId: string | null = null;
@@ -41,6 +44,7 @@ function evictOldestIfOverCapacity() {
   if (oldestId) sessions.delete(oldestId);
 }
 
+/** Keeps only the most recent MAX_HISTORY_TURNS user turns, cutting on a user-message boundary so tool-call/result pairs stay intact. */
 function trimHistory(messages: LlmMessage[]): LlmMessage[] {
   const userStartIndices: number[] = [];
   messages.forEach((m, i) => {
@@ -88,6 +92,7 @@ export function loadSession(sessionId: string | undefined | null, role: Role, pr
   return { sessionId: crypto.randomUUID(), history: [], wasReset: false };
 }
 
+/** Persists a session's (trimmed) message history, role, and provider, creating the record if it doesn't exist yet. */
 export function saveSession(sessionId: string, messages: LlmMessage[], role: Role, provider: string) {
   const existing = sessions.get(sessionId);
   const now = Date.now();
