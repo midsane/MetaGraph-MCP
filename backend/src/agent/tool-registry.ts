@@ -100,6 +100,13 @@ export async function executeTool(
     const result = typeof text === 'string' ? JSON.parse(text) : output;
     return { name, args: traceArgs, result };
   } catch (err) {
+    // Previously swallowed with no server-side trace at all - a failing
+    // tool (bad Postgres/Neo4j/Qdrant connection, malformed SQL, etc.) was
+    // only visible if a caller happened to inspect the toolCalls trace.
+    console.error(
+      `[Tool Error] ${name} failed:`,
+      err instanceof Error ? err.stack || err.message : err
+    );
     return { name, args: traceArgs, result: null, error: err instanceof Error ? err.message : String(err) };
   }
 }

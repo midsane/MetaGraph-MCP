@@ -3,6 +3,7 @@ import { runAgent } from '../../agent/runtime.js';
 import { loadSession, saveSession } from '../../agent/session-store.js';
 import { normalizeRole } from '../../rbac/redact.js';
 import { config } from '../../config/env.js';
+import { LlmProviderError, httpStatusForLlmError, llmErrorToPayload } from '../../llm/errors.js';
 
 const router = Router();
 
@@ -60,6 +61,14 @@ router.post('/', async (req, res) => {
             iterations: result.iterations,
         });
     } catch (err) {
+        // runAgent() already logged the full diagnostic (provider, kind,
+        // status, cause, stack) with this same traceId before rethrowing -
+        // this branch just shapes the client-visible response so a caller
+        // sees *why* it failed (rate limit? auth? network?) instead of a
+        // bare "fetch failed", and can hand the traceId back for support.
+        if (err instanceof LlmProviderError) {
+            return res.status(httpStatusForLlmError(err)).json(llmErrorToPayload(err));
+        }
         console.error('[Ask Endpoint Error]', err);
         const errorMessage = err instanceof Error ? err.message : 'Internal server error processing agent query.';
         res.status(500).json({ error: errorMessage });

@@ -1,10 +1,11 @@
 import { getLlmProvider } from '../llm/index.js';
 import type { LlmMessage } from '../llm/types.js';
+import { classifyLlmError, logLlmError } from '../llm/errors.js';
 import { buildToolDeclarations, executeTool, type ToolCallTrace } from './tool-registry.js';
 import { matchSkills } from './skills/index.js';
 import { normalizeRole, type Role } from '../rbac/redact.js';
 
-const MAX_ITERATIONS = 6;
+const MAX_ITERATIONS = 12;
 
 // Chunking: tool results are hydrated straight from Postgres/Neo4j/Qdrant
 // and can be long (a table with 40 columns, a table with 30 downstream
@@ -133,6 +134,10 @@ export async function runAgent(
   const role = normalizeRole(roleInput);
   const maxIterations = options.maxIterations ?? MAX_ITERATIONS;
   const provider = getLlmProvider();
+  // Ties a client-visible error back to the exact server log line that
+  // explains it - without this, "the agent is failing" is undebuggable
+  // once more than one request is in flight.
+  const traceId = `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   const skills = matchSkills(query);
   const skillsLoaded = skills.map(s => s.id);
@@ -151,7 +156,15 @@ export async function runAgent(
   let nudged = false;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    const response = await provider.chat({ system: systemInstruction, messages, tools });
+    let response;
+    try {
+      response = await provider.chat({ system: systemInstruction, messages, tools });
+    } catch (err) {
+      const classified = classifyLlmError(err, provider.name, 'chat');
+      classified.traceId = traceId;
+      logLlmError(classified, { traceId, iteration, role, query });
+      throw classified;
+    }
 
     if (response.toolCalls.length === 0) {
       if (response.finishReason === 'max_tokens' || response.finishReason === 'safety') {

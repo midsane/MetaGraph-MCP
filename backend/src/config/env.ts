@@ -59,6 +59,11 @@ export const config = {
   // How long the event listener waits after the last notification before
   // running syncUp(), so a burst of DDL statements collapses into one sync.
   syncDebounceMs: envInt('SYNC_DEBOUNCE_MS', 1500),
+
+  // Hard ceiling on any single LLM/embedding provider call. Without this, a
+  // stalled connection just hangs indefinitely instead of failing with a
+  // diagnosable timeout error - see src/llm/errors.ts.
+  llmTimeoutMs: envInt('LLM_TIMEOUT_MS', 30000),
 };
 
 /** Builds a Postgres connection string for the live business database from config.businessDb. */

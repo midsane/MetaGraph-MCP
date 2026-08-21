@@ -1,4 +1,5 @@
 import { getLlmProvider } from '../llm/index.js';
+import { classifyLlmError, logLlmError } from '../llm/errors.js';
 
 /**
  * HyDE (Hypothetical Document Embeddings): drafts a short hypothetical
@@ -31,7 +32,7 @@ export async function generateHydeDocument(query: string): Promise<string | null
     const text = result.text?.trim();
     return text ? text : null;
   } catch (err) {
-    console.error('[HyDE] generation failed, falling back to raw query:', err instanceof Error ? err.message : err);
+    logLlmError(classifyLlmError(err, getLlmProvider().name, 'hyde.chat'), { fallback: 'raw query used instead' });
     return null;
   }
 }

@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, FunctionCallingConfigMode, type Content } from '@google/genai';
 import { config } from '../config/env.js';
 import { EMBEDDING_DIMENSIONS } from './constants.js';
+import { classifyLlmError, logLlmError } from './errors.js';
 import type {
   LlmProvider,
   EmbeddingProvider,
@@ -114,39 +115,62 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
   readonly embeddingDimensions = EMBEDDING_DIMENSIONS;
   private ai: GoogleGenAI;
 
-  /** Creates the underlying Gemini SDK client using the configured API key. */
+  /**
+   * Creates the underlying Gemini SDK client using the configured API key.
+   * Fails fast with a clear message if the key is missing, rather than
+   * lazily surfacing an opaque 401 deep inside the first real call.
+   * httpOptions.timeout bounds every request the client makes - without it,
+   * a stalled connection just hangs instead of failing diagnosably.
+   */
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
+    if (!config.geminiApiKey) {
+      throw new Error(
+        'GEMINI_API_KEY is not set. Set it in the environment, or set LLM_PROVIDER=openrouter to use OpenRouter instead.'
+      );
+    }
+    this.ai = new GoogleGenAI({ apiKey: config.geminiApiKey, httpOptions: { timeout: config.llmTimeoutMs } });
   }
 
-  /** Sends a chat turn (with optional tool declarations) to Gemini and normalizes the response into LlmChatResult. */
+  /**
+   * Sends a chat turn (with optional tool declarations) to Gemini and
+   * normalizes the response into LlmChatResult. Never swallows failures -
+   * any SDK/network error is classified (auth/rate_limit/network/timeout/
+   * etc, see src/llm/errors.ts) and rethrown, so the agent runtime that
+   * calls this can log and surface *why* the call failed instead of a bare
+   * "fetch failed".
+   */
   async chat(options: LlmChatOptions): Promise<LlmChatResult> {
     const contents = toGeminiContents(options.messages);
     const hasTools = !!options.tools?.length;
 
-    const response = await this.ai.models.generateContent({
-      model: config.geminiModel,
-      contents,
-      config: {
-        systemInstruction: options.system,
-        ...(hasTools
-          ? {
-              tools: [
-                {
-                  functionDeclarations: options.tools!.map(t => ({
-                    name: t.name,
-                    description: t.description,
-                    parameters: toGeminiSchema(t.parameters),
-                  })),
-                },
-              ],
-              toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-            }
-          : {}),
-        ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
-        ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-      },
-    });
+    let response;
+    try {
+      response = await this.ai.models.generateContent({
+        model: config.geminiModel,
+        contents,
+        config: {
+          systemInstruction: options.system,
+          ...(hasTools
+            ? {
+                tools: [
+                  {
+                    functionDeclarations: options.tools!.map(t => ({
+                      name: t.name,
+                      description: t.description,
+                      parameters: toGeminiSchema(t.parameters),
+                    })),
+                  },
+                ],
+                toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+              }
+            : {}),
+          ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+          ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+        },
+      });
+    } catch (err) {
+      throw classifyLlmError(err, this.name, `chat(model=${config.geminiModel})`);
+    }
 
     const candidate = response.candidates?.[0];
     // Walk the raw parts (not the flattened response.functionCalls getter)
@@ -169,7 +193,7 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
     };
   }
 
-  /** Asks Gemini to generate a single JSON document matching an optional schema; returns null on failure. */
+  /** Asks Gemini to generate a single JSON document matching an optional schema; returns null on failure (best-effort, logged in full so failures aren't silent). */
   async generateJson(options: LlmJsonOptions): Promise<string | null> {
     try {
       const response = await this.ai.models.generateContent({
@@ -184,12 +208,12 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
       });
       return response.text ?? null;
     } catch (err) {
-      console.error('[GeminiProvider] generateJson failed:', err instanceof Error ? err.message : err);
+      logLlmError(classifyLlmError(err, this.name, `generateJson(model=${config.geminiModel})`));
       return null;
     }
   }
 
-  /** Embeds a text string via Gemini into a fixed-size vector; returns null on failure or dimension mismatch. */
+  /** Embeds a text string via Gemini into a fixed-size vector; returns null on failure or dimension mismatch (best-effort, logged in full so failures aren't silent). */
   async embed(text: string): Promise<number[] | null> {
     try {
       const response = await this.ai.models.embedContent({
@@ -206,7 +230,7 @@ export class GeminiProvider implements LlmProvider, EmbeddingProvider {
       }
       return vector;
     } catch (err) {
-      console.error('[GeminiProvider] embed failed:', err instanceof Error ? err.message : err);
+      logLlmError(classifyLlmError(err, this.name, `embed(model=${config.geminiEmbeddingModel})`));
       return null;
     }
   }

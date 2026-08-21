@@ -160,3 +160,8 @@ detailed_working/  implementation deep-dives, one per major feature
 ## License
 
 [MIT](./LICENSE)
+
+## Explanation videos
+
+- Part 1: https://www.loom.com/share/40be560d55b249ee9c8d15680db677eb
+- Part 2: https://www.loom.com/share/7cac8fbb58d340d49cf36fbcba50db02

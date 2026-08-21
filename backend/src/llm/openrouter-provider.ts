@@ -1,5 +1,6 @@
 import { config } from '../config/env.js';
 import { EMBEDDING_DIMENSIONS } from './constants.js';
+import { classifyLlmError, llmErrorFromStatus, logLlmError } from './errors.js';
 import type {
   LlmProvider,
   EmbeddingProvider,
@@ -66,20 +67,45 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
   readonly name = 'openrouter';
   readonly embeddingDimensions = EMBEDDING_DIMENSIONS;
 
-  /** POSTs a JSON body to an OpenRouter API path, throwing with the response body on a non-OK status. */
+  /**
+   * Creates the provider, failing fast if the API key is missing rather than
+   * letting every call 401 with no indication why.
+   */
+  constructor() {
+    if (!config.openrouter.apiKey) {
+      throw new Error(
+        'OPENROUTER_API_KEY is not set. Set it in the environment, or set LLM_PROVIDER=gemini to use Gemini instead.'
+      );
+    }
+  }
+
+  /**
+   * POSTs a JSON body to an OpenRouter API path. Always throws a classified
+   * LlmProviderError on failure - a non-OK response gets the real HTTP
+   * status (so 429/401/5xx are distinguishable), and a network/timeout
+   * failure (the fetch() call itself rejecting) is classified from the raw
+   * exception - see src/llm/errors.ts. Bounded by LLM_TIMEOUT_MS so a
+   * stalled connection fails diagnosably instead of hanging.
+   */
   private async request(path: string, body: Record<string, unknown>): Promise<any> {
-    const response = await fetch(`${BASE_URL}${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.openrouter.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.openrouter.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(config.llmTimeoutMs),
+      });
+    } catch (err) {
+      throw classifyLlmError(err, this.name, path);
+    }
 
     if (!response.ok) {
       const errText = await response.text().catch(() => response.statusText);
-      throw new Error(`OpenRouter ${path} failed (${response.status}): ${errText}`);
+      throw llmErrorFromStatus(this.name, path, response.status, errText);
     }
 
     return response.json();
@@ -143,7 +169,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
 
       return data.choices?.[0]?.message?.content ?? null;
     } catch (err) {
-      console.error('[OpenRouterProvider] generateJson failed:', err instanceof Error ? err.message : err);
+      logLlmError(classifyLlmError(err, this.name, `generateJson(model=${config.openrouter.model})`));
       return null;
     }
   }
@@ -166,7 +192,7 @@ export class OpenRouterProvider implements LlmProvider, EmbeddingProvider {
       }
       return vector;
     } catch (err) {
-      console.error('[OpenRouterProvider] embed failed:', err instanceof Error ? err.message : err);
+      logLlmError(classifyLlmError(err, this.name, `embed(model=${config.openrouter.embeddingModel})`));
       return null;
     }
   }

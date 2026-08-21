@@ -4,6 +4,7 @@ import { SyncEngine } from '../core/sync-engine.js';
 import { businessConnector } from '../connectors/postgres-connector.js';
 import { stripSqlComments } from '../core/sql-utils.js';
 import { runAgent } from '../agent/runtime.js';
+import { LlmProviderError } from '../llm/errors.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -93,6 +94,12 @@ Examples:
 main()
   .then(() => process.exit(0))
   .catch(err => {
-    console.error('[CLI Error]', err);
+    if (err instanceof LlmProviderError) {
+      console.error(
+        `❌ [${err.provider}] ${err.operation} failed (${err.kind}${err.status ? ` ${err.status}` : ''}): ${err.message}`
+      );
+    } else {
+      console.error('[CLI Error]', err);
+    }
     process.exit(1);
   });

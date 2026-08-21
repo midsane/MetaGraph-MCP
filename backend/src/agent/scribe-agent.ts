@@ -1,4 +1,5 @@
 import { getLlmProvider } from '../llm/index.js';
+import { classifyLlmError, logLlmError } from '../llm/errors.js';
 import type { LlmJsonSchema } from '../llm/types.js';
 
 export interface ScribeColumnDoc {
@@ -57,7 +58,7 @@ export class ScribeAgent {
       if (!text) throw new Error('empty response from LLM provider');
       return JSON.parse(text);
     } catch (err) {
-      console.error('[ScribeAgent] LLM provider error:', err instanceof Error ? err.message : err);
+      logLlmError(classifyLlmError(err, getLlmProvider().name, 'scribe.generateJson'), { tableName, fallback: 'low-confidence stub used instead' });
       return {
         business_description: 'Unverified table schema.',
         confidence_score: 0.1,
